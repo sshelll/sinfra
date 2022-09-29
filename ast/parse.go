@@ -5,6 +5,9 @@ import (
 	"go/parser"
 	"go/token"
 	"path/filepath"
+	"strconv"
+
+	serr "github.com/SCU-SJL/sinfra/error"
 )
 
 func Parse(path string) (*File, error) {
@@ -103,7 +106,7 @@ func TryConvDeclToImports(decl ast.Decl) (importList []*Import) {
 
 		imp := &Import{
 			AstDecl: decl,
-			Pkg:     impSpec.Path.Value,
+			Pkg:     serr.Drop1(strconv.Unquote(impSpec.Path.Value)).(string),
 		}
 
 		if name := impSpec.Name; name != nil {
