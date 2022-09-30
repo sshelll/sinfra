@@ -2,30 +2,11 @@ package conv
 
 import (
 	"bytes"
-	"strings"
 )
 
-type sptrConvFlag byte
-
-const (
-	DefaultSptrConvFlag sptrConvFlag = 1 << iota
-	WithNilSptrConvFlag
-	WithTrimSptrConvFlag
-)
-
-func StrPtr(s string) *string {
-	return &s
-}
-
-func StrVal(p *string, convFlag sptrConvFlag) string {
+func StrVal(p *string) string {
 	if p == nil {
-		if WithNilSptrConvFlag&convFlag > 0 {
-			return "<nil>"
-		}
 		return ""
-	}
-	if WithTrimSptrConvFlag&convFlag > 0 {
-		return strings.TrimSpace(*p)
 	}
 	return *p
 }
