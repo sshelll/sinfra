@@ -1,9 +1,13 @@
 package ds
 
+import "sync"
+
 type (
 	MetaForest struct {
 		Children []*MetaTree
 		Extra    interface{}
+		mu       sync.Mutex
+		nodeMap  *sync.Map
 	}
 
 	MetaTree struct {
@@ -24,8 +28,34 @@ type (
 	}
 )
 
-func (f *MetaForest) WithHashIndex(size int) {
-	// TODO: finish
+func (f *MetaForest) EnableHashIndex() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.nodeMap != nil {
+		return
+	}
+	f.nodeMap = &sync.Map{}
+}
+
+func (f *MetaForest) ResetHashIndex() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.nodeMap == nil {
+		return
+	}
+	f.nodeMap = &sync.Map{}
+}
+
+func (f *MetaForest) DisableHashIndex() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.nodeMap = nil
+}
+
+func (f *MetaForest) RemoveHashIndex(key string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.nodeMap.Delete(key)
 }
 
 func (f *MetaForest) SearchNode(key string) *MetaNode {
@@ -34,8 +64,13 @@ func (f *MetaForest) SearchNode(key string) *MetaNode {
 		return nil
 	}
 
+	if node, ok := f.nodeMap.Load(key); ok {
+		return node.(*MetaNode)
+	}
+
 	for _, tree := range f.Children {
 		if node := tree.SearchNode(key); node != nil {
+			f.nodeMap.Store(node.Key, node)
 			return node
 		}
 	}
