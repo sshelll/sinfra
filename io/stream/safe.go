@@ -2,6 +2,7 @@ package stream
 
 import (
 	"fmt"
+	"io"
 )
 
 type DatapackProducer interface {
@@ -50,6 +51,62 @@ func (s *SafeIOStreamWriter) Start() (*IOStream, *ErrorPasser) {
 			if !hasNext {
 				break
 			}
+		}
+
+	}()
+
+	return outputStream, outputErr
+
+}
+
+type SafeIOStreamReader struct {
+	inputStream     *IOStream
+	datapackHandler func(rc io.ReadCloser, extra interface{}) error
+	finalizer       func()
+}
+
+func NewSafeIOStreamReader(inputStream *IOStream, handler func(io.ReadCloser, interface{}) error,
+	finalizer func()) *SafeIOStreamReader {
+	return &SafeIOStreamReader{
+		inputStream:     inputStream,
+		datapackHandler: handler,
+		finalizer:       finalizer,
+	}
+}
+
+func (s *SafeIOStreamReader) Start() (*IOStream, *ErrorPasser) {
+
+	outputStream := NewIOStream()
+	outputErr := NewErrorPasser()
+
+	go func() {
+
+		defer func() {
+			if r := recover(); r != nil {
+				outputErr.Put(fmt.Errorf("zipper panicked, err = %v", r))
+			}
+			outputErr.Close()
+			outputStream.Close()
+			s.finalizer()
+		}()
+
+		for {
+
+			datapack, closed := s.inputStream.Read()
+			if closed {
+				break
+			}
+
+			rc, extra := datapack.ReadCloser(), datapack.Extra()
+
+			if rc == nil {
+				continue
+			}
+
+			if err := s.datapackHandler(rc, extra); err != nil {
+				outputErr.Put(err)
+			}
+
 		}
 
 	}()

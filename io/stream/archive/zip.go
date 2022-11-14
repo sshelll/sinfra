@@ -22,6 +22,46 @@ func NewZipper() *Zipper {
 	return zipper
 }
 
+func (z *Zipper) SafeZip(inputStream *stream.IOStream, inputErr *stream.ErrorPasser) (
+	outputStream *stream.IOStream, outputErr *stream.ErrorPasser) {
+
+	safeReader := stream.NewSafeIOStreamReader(inputStream,
+		func(rc io.ReadCloser, extra interface{}) error {
+
+			filename := extra.(string)
+
+			if rc == nil || len(strings.TrimSpace(filename)) == 0 {
+				return nil
+			}
+
+			fw, err := z.zw.Create(filename)
+			if err != nil {
+				return err
+			}
+
+			if _, err := io.Copy(fw, rc); err != nil {
+				return err
+			}
+
+			if err := rc.Close(); err != nil {
+				return err
+			}
+
+			return nil
+
+		},
+		func() {
+			z.zw.Close()
+			z.pw.Close()
+		},
+	)
+
+	outputStream, outputErr = safeReader.Start()
+	go outputStream.Write(stream.NewSimpleDatapack(z.pr, nil))
+
+	return
+}
+
 func (z *Zipper) Zip(inputStream *stream.IOStream, inputErr *stream.ErrorPasser) (
 	outputStream *stream.IOStream, outputErr *stream.ErrorPasser) {
 

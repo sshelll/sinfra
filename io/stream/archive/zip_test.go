@@ -43,6 +43,36 @@ func TestZip(t *testing.T) {
 
 }
 
+func TestSafeZip(t *testing.T) {
+
+	fileStream, errPasser := stream.NewSafeIOStreamWriter(NewFileProducer()).Start()
+
+	zipper := NewZipper()
+	proc := stream.BuildProcChain(zipper.SafeZip)
+
+	outputStream, outputErr := proc(fileStream, errPasser)
+
+	f, err := os.Create("test_result.zip")
+	assert.Nil(t, err)
+
+	for {
+		zipData, closed := outputStream.Read()
+		if closed {
+			t.Log("zip stream closed")
+			break
+		}
+		t.Log("start handling zip data")
+		zr := zipData.ReadCloser()
+		_, err := io.Copy(f, zr)
+		assert.Nil(t, err)
+	}
+
+	err, done := outputErr.Check()
+	assert.Nil(t, err)
+	assert.True(t, done)
+
+}
+
 type FileProducer struct {
 	idx   int
 	files []string
@@ -56,8 +86,10 @@ func NewFileProducer() *FileProducer {
 		}
 		return nil
 	})
-	files = files[1:]
-	return &FileProducer{files: files}
+	return &FileProducer{
+		idx:   0,
+		files: files,
+	}
 }
 
 func (p *FileProducer) Next() (datapack stream.Datapack, hasNext bool, err error) {
@@ -65,6 +97,10 @@ func (p *FileProducer) Next() (datapack stream.Datapack, hasNext bool, err error
 	time.Sleep(time.Second)
 
 	f, err := os.Open(p.files[p.idx])
+	if err != nil {
+		return nil, false, err
+	}
+
 	datapack = stream.NewSimpleDatapack(f, f.Name())
 
 	p.idx++
