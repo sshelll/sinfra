@@ -184,7 +184,7 @@ func Gen(t Type, opt *GenOption) interface{} {
 			}
 			return ValueOf(v.Interface())
 
-		case Pointer:
+		case Ptr:
 			v := New(t.Elem())
 			v.Elem().Set(gen(t.Elem(), depth))
 			return v
