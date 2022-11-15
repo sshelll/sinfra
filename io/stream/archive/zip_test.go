@@ -1,8 +1,11 @@
 package archive
 
 import (
+	"bytes"
+	"errors"
 	"io"
 	"io/fs"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -73,6 +76,39 @@ func TestSafeZip(t *testing.T) {
 
 }
 
+func TestZipWithErr(t *testing.T) {
+
+	iostream, errPasser := stream.NewSafeIOStreamWriter(&ErrorProducer{}).Start()
+
+	zipper := NewZipper()
+	proc := stream.BuildProcChain(zipper.SafeZip)
+
+	outputStream, outputErr := proc(iostream, errPasser)
+
+	for {
+		data, closed := outputStream.Read()
+		if closed {
+			t.Log("input stream closed")
+			break
+		}
+		t.Log("start handling input")
+		rc := data.ReadCloser()
+		t.Logf("rc is nil = %v, extra = %v", rc == nil, data.Extra())
+		bs, err := ioutil.ReadAll(rc)
+		t.Logf("err = %v", err)
+		t.Logf("input is %s", string(bs))
+	}
+
+	for {
+		err, done := outputErr.Check()
+		if done {
+			break
+		}
+		t.Log("err is", err.Error())
+	}
+
+}
+
 type FileProducer struct {
 	idx   int
 	files []string
@@ -108,4 +144,21 @@ func (p *FileProducer) Next() (datapack stream.Datapack, hasNext bool, err error
 
 	return
 
+}
+
+type ErrorProducer struct {
+	idx int
+}
+
+func (p *ErrorProducer) Next() (datapack stream.Datapack, hasNext bool, err error) {
+	if p.idx > 0 {
+		err = errors.New("some error from ErrorProducer")
+		return
+	}
+	p.idx++
+	r := bytes.NewBufferString("hello world")
+	rc := io.NopCloser(r)
+	datapack = stream.NewSimpleDatapack(rc, "hello.txt")
+	hasNext = true
+	return
 }

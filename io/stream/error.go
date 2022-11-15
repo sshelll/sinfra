@@ -6,17 +6,26 @@ type ErrorPasser struct {
 
 func NewErrorPasser() *ErrorPasser {
 	return &ErrorPasser{
+		// default size is 2
 		errCh: make(chan error, 2),
 	}
 }
 
+func NewErrorPasserWithCap(maxErrCnt int) *ErrorPasser {
+	if maxErrCnt < 0 {
+		maxErrCnt = 0
+	}
+	return &ErrorPasser{
+		errCh: make(chan error, maxErrCnt),
+	}
+}
+
+// Check try get err in a non-block way.
+// NOTE: if done, err is nil.
 func (e *ErrorPasser) Check() (err error, done bool) {
 	select {
 	case err, ok := <-e.errCh:
-		if err != nil {
-			return err, true
-		}
-		return nil, !ok
+		return err, !ok
 	default:
 		return nil, false
 	}
@@ -35,4 +44,8 @@ func (e *ErrorPasser) Put(err error) {
 
 func (e *ErrorPasser) Close() {
 	close(e.errCh)
+}
+
+func (e *ErrorPasser) Cap() int {
+	return cap(e.errCh)
 }

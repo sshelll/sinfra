@@ -25,41 +25,45 @@ func NewZipper() *Zipper {
 func (z *Zipper) SafeZip(inputStream *stream.IOStream, inputErr *stream.ErrorPasser) (
 	outputStream *stream.IOStream, outputErr *stream.ErrorPasser) {
 
-	safeReader := stream.NewSafeIOStreamReader(inputStream,
-		func(rc io.ReadCloser, extra interface{}) error {
+	datapackHandler := func(rc io.ReadCloser, extra interface{}) error {
 
-			filename := extra.(string)
+		filename := extra.(string)
 
-			if rc == nil || len(strings.TrimSpace(filename)) == 0 {
-				return nil
-			}
-
-			fw, err := z.zw.Create(filename)
-			if err != nil {
-				return err
-			}
-
-			if _, err := io.Copy(fw, rc); err != nil {
-				return err
-			}
-
-			if err := rc.Close(); err != nil {
-				return err
-			}
-
+		if rc == nil || len(strings.TrimSpace(filename)) == 0 {
 			return nil
+		}
 
-		},
-		func() {
-			z.zw.Close()
-			z.pw.Close()
-		},
-	)
+		fw, err := z.zw.Create(filename)
+		if err != nil {
+			return err
+		}
 
-	outputStream, outputErr = safeReader.Start()
-	go outputStream.Write(stream.NewSimpleDatapack(z.pr, nil))
+		if _, err := io.Copy(fw, rc); err != nil {
+			return err
+		}
+
+		if err := rc.Close(); err != nil {
+			return err
+		}
+
+		return nil
+
+	}
+
+	finalizer := func() {
+		z.zw.Close()
+		z.pw.Close()
+	}
+
+	safeHandler := stream.NewSafeIOStreamHandler(inputStream, inputErr, datapackHandler, finalizer)
+
+	outputStream, outputErr = safeHandler.BuildStream()
+	outputStream.Write(stream.NewSimpleDatapack(z.pr, nil))
+
+	safeHandler.Start()
 
 	return
+
 }
 
 func (z *Zipper) Zip(inputStream *stream.IOStream, inputErr *stream.ErrorPasser) (
@@ -71,8 +75,7 @@ func (z *Zipper) Zip(inputStream *stream.IOStream, inputErr *stream.ErrorPasser)
 
 	outputStream = stream.NewIOStream()
 	outputErr = stream.NewErrorPasser()
-
-	go outputStream.Write(stream.NewSimpleDatapack(z.pr, nil))
+	outputStream.Write(stream.NewSimpleDatapack(z.pr, nil))
 
 	go func() {
 
@@ -82,7 +85,6 @@ func (z *Zipper) Zip(inputStream *stream.IOStream, inputErr *stream.ErrorPasser)
 			}
 			outputErr.Close()
 			outputStream.Close()
-			inputStream.Close()
 			z.zw.Close()
 			z.pw.Close()
 		}()

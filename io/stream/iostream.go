@@ -26,6 +26,8 @@ func (s *IOStream) Read() (data Datapack, streamClosed bool) {
 	return dp, !ok
 }
 
+// TryRead try read datapack in a non-block way.
+// NOTE: if streamClosed, data is nil
 func (s *IOStream) TryRead() (data Datapack, streamClosed bool) {
 	select {
 	case data, ok := <-s.dataCh:
@@ -36,10 +38,8 @@ func (s *IOStream) TryRead() (data Datapack, streamClosed bool) {
 }
 
 func (s *IOStream) Close() {
-	if !s.isClosed() {
-		close(s.ctrlCh)
-		close(s.dataCh)
-	}
+	close(s.ctrlCh)
+	close(s.dataCh)
 }
 
 func (s *IOStream) isClosed() bool {

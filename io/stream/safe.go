@@ -59,31 +59,59 @@ func (s *SafeIOStreamWriter) Start() (*IOStream, *ErrorPasser) {
 
 }
 
-type SafeIOStreamReader struct {
-	inputStream     *IOStream
-	datapackHandler func(rc io.ReadCloser, extra interface{}) error
-	finalizer       func()
+type SafeIOStreamHandler struct {
+	inputStream, outputStream *IOStream
+	inputErr, outputErr       *ErrorPasser
+	datapackHandler           func(rc io.ReadCloser, extra interface{}) error
+	finalizer                 func()
 }
 
-func NewSafeIOStreamReader(inputStream *IOStream, handler func(io.ReadCloser, interface{}) error,
-	finalizer func()) *SafeIOStreamReader {
-	return &SafeIOStreamReader{
+func NewSafeIOStreamHandler(
+	inputStream *IOStream,
+	inputErr *ErrorPasser,
+	handler func(io.ReadCloser, interface{}) error,
+	finalizer func(),
+) *SafeIOStreamHandler {
+
+	return &SafeIOStreamHandler{
 		inputStream:     inputStream,
+		inputErr:        inputErr,
 		datapackHandler: handler,
 		finalizer:       finalizer,
 	}
+
 }
 
-func (s *SafeIOStreamReader) Start() (*IOStream, *ErrorPasser) {
+func (s *SafeIOStreamHandler) BuildStream() (*IOStream, *ErrorPasser) {
 
-	outputStream := NewIOStream()
-	outputErr := NewErrorPasser()
+	if s.inputStream == nil || s.inputErr == nil {
+		return nil, nil
+	}
+
+	if s.datapackHandler == nil {
+		return s.inputStream, s.inputErr
+	}
+
+	s.outputStream = NewIOStream()
+	s.outputErr = NewErrorPasserWithCap(s.inputErr.Cap() + 2)
+
+	return s.outputStream, s.outputErr
+
+}
+
+func (s *SafeIOStreamHandler) Start() {
+
+	outputStream, outputErr := s.outputStream, s.outputErr
+
+	if outputStream == nil || outputErr == nil {
+		s.BuildStream()
+	}
 
 	go func() {
 
 		defer func() {
 			if r := recover(); r != nil {
-				outputErr.Put(fmt.Errorf("zipper panicked, err = %v", r))
+				outputErr.Put(fmt.Errorf("SafeIOStreamHandler panicked, err = %v", r))
 			}
 			outputErr.Close()
 			outputStream.Close()
@@ -91,26 +119,33 @@ func (s *SafeIOStreamReader) Start() (*IOStream, *ErrorPasser) {
 		}()
 
 		for {
-
 			datapack, closed := s.inputStream.Read()
 			if closed {
 				break
 			}
 
 			rc, extra := datapack.ReadCloser(), datapack.Extra()
-
 			if rc == nil {
 				continue
 			}
 
 			if err := s.datapackHandler(rc, extra); err != nil {
 				outputErr.Put(err)
+				break
 			}
+		}
 
+		// handle input err
+		for {
+			err, done := s.inputErr.Check()
+			if done {
+				break
+			}
+			if err != nil {
+				outputErr.Put(err)
+			}
 		}
 
 	}()
-
-	return outputStream, outputErr
 
 }
