@@ -17,7 +17,6 @@ type Zipper struct {
 	zw               *zip.Writer
 	pr               *io.PipeReader
 	pw               *io.PipeWriter
-	zipFilename      string
 	ctxKeyOfFileName string
 }
 
@@ -63,15 +62,9 @@ func (z *Zipper) datapackHandleFn(ctx context.Context, rc io.ReadCloser) error {
 		return errors.New("extra should be a string represents filename, but got nil")
 	}
 
-	v := ctx.Value(z.ctxKeyOfFileName)
-	if v == nil {
-		return fmt.Errorf("cannot find file name with key '%s'", z.ctxKeyOfFileName)
-	}
-
-	filename, ok := v.(string)
-	if !ok || len(strings.TrimSpace(filename)) == 0 {
-		return fmt.Errorf("ctx value with key '%s' should be a string represents filename, but got type = %s, value = %v",
-			z.ctxKeyOfFileName, reflect.TypeOf(v).Name(), v)
+	filename, err := z.extractFileName(ctx)
+	if err != nil {
+		return err
 	}
 
 	fw, err := z.zw.Create(filename)
@@ -90,4 +83,21 @@ func (z *Zipper) datapackHandleFn(ctx context.Context, rc io.ReadCloser) error {
 func (z *Zipper) finalizeFn() {
 	z.zw.Close()
 	z.pw.Close()
+}
+
+func (z *Zipper) extractFileName(ctx context.Context) (string, error) {
+
+	v := ctx.Value(z.ctxKeyOfFileName)
+	if v == nil {
+		return "", fmt.Errorf("cannot find file name with key '%s'", z.ctxKeyOfFileName)
+	}
+
+	filename, ok := v.(string)
+	if !ok || len(strings.TrimSpace(filename)) == 0 {
+		return "", fmt.Errorf("ctx value with key '%s' should be a string represents filename, but got type = %s, value = %v",
+			z.ctxKeyOfFileName, reflect.TypeOf(v).Name(), v)
+	}
+
+	return filename, nil
+
 }

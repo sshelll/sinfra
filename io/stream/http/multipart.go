@@ -70,15 +70,9 @@ func (m *Multiparter) datapackHandleFn(ctx context.Context, rc io.ReadCloser) er
 		return nil
 	}
 
-	v := ctx.Value(m.ctxKeyOfFileName)
-	if v == nil {
-		return fmt.Errorf("cannot find file name with key '%s'", m.ctxKeyOfFileName)
-	}
-
-	filename, ok := v.(string)
-	if !ok || len(strings.TrimSpace(filename)) == 0 {
-		return fmt.Errorf("ctx value with key '%s' should be a string represents filename, but got type = %s, value = %v",
-			m.ctxKeyOfFileName, reflect.TypeOf(v).Name(), v)
+	filename, err := m.extractFileName(ctx)
+	if err != nil {
+		return err
 	}
 
 	formFile, err := m.mw.CreateFormFile(m.fieldName, filename)
@@ -94,4 +88,21 @@ func (m *Multiparter) datapackHandleFn(ctx context.Context, rc io.ReadCloser) er
 func (m *Multiparter) finalizeFn() {
 	m.mw.Close()
 	m.pw.Close()
+}
+
+func (m *Multiparter) extractFileName(ctx context.Context) (string, error) {
+
+	v := ctx.Value(m.ctxKeyOfFileName)
+	if v == nil {
+		return "", fmt.Errorf("cannot find file name with key '%s'", m.ctxKeyOfFileName)
+	}
+
+	filename, ok := v.(string)
+	if !ok || len(strings.TrimSpace(filename)) == 0 {
+		return "", fmt.Errorf("ctx value with key '%s' should be a string represents filename, but got type = %s, value = %v",
+			m.ctxKeyOfFileName, reflect.TypeOf(v).Name(), v)
+	}
+
+	return filename, nil
+
 }
