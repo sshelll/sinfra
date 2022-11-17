@@ -16,36 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestZip(t *testing.T) {
-
-	fileStream, errPasser := stream.NewSafeIOStreamWriter(NewFileProducer()).Start()
-
-	zipper := NewZipper()
-	proc := stream.BuildProcChain(zipper.Zip)
-
-	outputStream, outputErr := proc(fileStream, errPasser)
-
-	f, err := os.Create("test_result.zip")
-	assert.Nil(t, err)
-
-	for {
-		zipData, closed := outputStream.Read()
-		if closed {
-			t.Log("zip stream closed")
-			break
-		}
-		t.Log("start handling zip data")
-		zr := zipData.ReadCloser()
-		_, err := io.Copy(f, zr)
-		assert.Nil(t, err)
-	}
-
-	err, done := outputErr.Check()
-	assert.Nil(t, err)
-	assert.True(t, done)
-
-}
-
 func TestSafeZip(t *testing.T) {
 
 	fileStream, errPasser := stream.NewSafeIOStreamWriter(NewFileProducer()).Start()
@@ -76,7 +46,7 @@ func TestSafeZip(t *testing.T) {
 
 }
 
-func TestZipWithErr(t *testing.T) {
+func TestZipWithUpstreamErr(t *testing.T) {
 
 	iostream, errPasser := stream.NewSafeIOStreamWriter(&ErrorProducer{}).Start()
 
