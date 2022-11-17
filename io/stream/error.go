@@ -20,6 +20,15 @@ func NewErrorPasserWithCap(maxErrCnt int) *ErrorPasser {
 	}
 }
 
+func NewClosedErrorPasser(errs ...error) *ErrorPasser {
+	ep := NewErrorPasserWithCap(len(errs))
+	for i := range errs {
+		ep.Put(errs[i])
+	}
+	ep.Close()
+	return ep
+}
+
 // Check try get err in a non-block way.
 // NOTE: if done, err is nil.
 func (e *ErrorPasser) Check() (err error, done bool) {

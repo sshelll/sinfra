@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -10,15 +11,16 @@ import (
 func TestAll(t *testing.T) {
 
 	stream := NewIOStream()
+	ctx := context.Background()
 
 	go func() {
 		time.Sleep(time.Second)
-		stream.Write(NewSimpleDatapack(nil, "extra"))
+		stream.Write(NewSimpleDatapack(context.WithValue(ctx, "key", "extra"), nil))
 	}()
 
 	// block read
 	data, closed := stream.Read()
-	assert.Equal(t, data.Extra().(string), "extra")
+	assert.Equal(t, data.Context().Value("key").(string), "extra")
 	assert.False(t, closed)
 
 	// close and read
@@ -41,10 +43,10 @@ func TestTryRead(t *testing.T) {
 
 	go func() {
 		time.Sleep(time.Second)
-		stream.Write(NewSimpleDatapack(nil, "extra"))
+		stream.Write(NewSimpleDatapack(context.Background(), nil))
 		time.Sleep(time.Second)
-		stream.Write(NewSimpleDatapack(nil, "extra"))
-		stream.Write(NewSimpleDatapack(nil, "extra"))
+		stream.Write(NewSimpleDatapack(context.Background(), nil))
+		stream.Write(NewSimpleDatapack(context.Background(), nil))
 		stream.Close()
 	}()
 

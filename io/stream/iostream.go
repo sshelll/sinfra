@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"context"
 	"io"
 	"sync"
 )
@@ -18,6 +19,26 @@ func NewIOStream() *IOStream {
 		dataCh: make(chan Datapack, 1),
 		ctrlCh: make(chan struct{}),
 	}
+}
+
+func NewIOStreamWithCap(maxDatapackCnt int) *IOStream {
+	if maxDatapackCnt < 0 {
+		maxDatapackCnt = 0
+	}
+	return &IOStream{
+		mu:     &sync.Mutex{},
+		dataCh: make(chan Datapack, maxDatapackCnt),
+		ctrlCh: make(chan struct{}),
+	}
+}
+
+func NewClosedIOStream(datapacks ...Datapack) *IOStream {
+	iostream := NewIOStreamWithCap(len(datapacks))
+	for i := range datapacks {
+		iostream.Write(datapacks[i])
+	}
+	iostream.Close()
+	return iostream
 }
 
 func (s *IOStream) Write(data Datapack) (streamClosed bool) {
@@ -68,19 +89,19 @@ func (s *IOStream) isClosed() bool {
 
 // Datapack is a io.ReadCloser with some extra info.
 type Datapack interface {
+	Context() context.Context
 	ReadCloser() io.ReadCloser
-	Extra() interface{}
 }
 
 type simpleDatapack struct {
-	r     io.ReadCloser
-	extra interface{}
+	r   io.ReadCloser
+	ctx context.Context
 }
 
-func NewSimpleDatapack(r io.ReadCloser, extra interface{}) *simpleDatapack {
+func NewSimpleDatapack(ctx context.Context, r io.ReadCloser) *simpleDatapack {
 	return &simpleDatapack{
-		r:     r,
-		extra: extra,
+		r:   r,
+		ctx: ctx,
 	}
 }
 
@@ -88,6 +109,6 @@ func (s *simpleDatapack) ReadCloser() io.ReadCloser {
 	return s.r
 }
 
-func (s *simpleDatapack) Extra() interface{} {
-	return s.extra
+func (s *simpleDatapack) Context() context.Context {
+	return s.ctx
 }

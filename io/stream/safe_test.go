@@ -2,6 +2,7 @@ package stream
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,7 +18,6 @@ func TestDownstreamPanic(t *testing.T) {
 		if closed {
 			break
 		}
-		t.Logf("[outter] datapack.extra = %v", data.Extra())
 		bs, _ := ioutil.ReadAll(data.ReadCloser())
 		t.Logf("[outter] read data: %v", string(bs))
 	}
@@ -40,7 +40,7 @@ func (p *StringProducer) Next() (datapack Datapack, hasNext bool, err error) {
 	str := fmt.Sprintf("this is the %dth str", p.idx)
 	r := bytes.NewBufferString(str)
 	rc := ioutil.NopCloser(r)
-	datapack = NewSimpleDatapack(rc, "string producer")
+	datapack = NewSimpleDatapack(context.Background(), rc)
 	hasNext = p.idx < 30
 	return
 }
@@ -61,12 +61,12 @@ func (p *ProcWithPanic) Proc(inputStream *IOStream, inputErr *ErrorPasser) (
 	outputStream *IOStream, outputErr *ErrorPasser) {
 	safeHandler := NewSafeIOStreamHandler(inputStream, inputErr, p.datapackHandleFn, p.finalizeFn)
 	outputStream, outputErr = safeHandler.BuildStream()
-	outputStream.Write(NewSimpleDatapack(p.pr, "proc with panic"))
+	outputStream.Write(NewSimpleDatapack(context.Background(), p.pr))
 	safeHandler.Start()
 	return
 }
 
-func (p *ProcWithPanic) datapackHandleFn(rc io.ReadCloser, extra interface{}) error {
+func (p *ProcWithPanic) datapackHandleFn(ctx context.Context, rc io.ReadCloser) error {
 
 	log.Println("[ProcWithPanic] datapackHandleFn is running")
 

@@ -2,6 +2,7 @@ package archive
 
 import (
 	"archive/zip"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -12,10 +13,12 @@ import (
 )
 
 type Zipper struct {
-	zw          *zip.Writer
-	pr          *io.PipeReader
-	pw          *io.PipeWriter
-	getFilename func(extra interface{}) string
+	downstreamCtx    context.Context
+	zw               *zip.Writer
+	pr               *io.PipeReader
+	pw               *io.PipeWriter
+	zipFilename      string
+	ctxKeyOfFileName string
 }
 
 func NewZipper() *Zipper {
@@ -25,18 +28,28 @@ func NewZipper() *Zipper {
 	return zipper
 }
 
-func (z *Zipper) SetGetFileNameFromExtraFn(fn func(extra interface{}) string) {
-	z.getFilename = fn
+func (z *Zipper) SetDownstreamCtx(ctx context.Context) {
+	z.downstreamCtx = ctx
 }
 
-// SafeZip note that outputStream only contains one datapack.
-func (z *Zipper) SafeZip(inputStream *stream.IOStream, inputErr *stream.ErrorPasser) (
+func (z *Zipper) SetCtxKeyOfFileName(key string) {
+	z.ctxKeyOfFileName = key
+}
+
+// Proc note that outputStream only contains one datapack.
+func (z *Zipper) Proc(inputStream *stream.IOStream, inputErr *stream.ErrorPasser) (
 	outputStream *stream.IOStream, outputErr *stream.ErrorPasser) {
 
 	safeHandler := stream.NewSafeIOStreamHandler(inputStream, inputErr, z.datapackHandleFn, z.finalizeFn)
 
 	outputStream, outputErr = safeHandler.BuildStream()
-	outputStream.Write(stream.NewSimpleDatapack(z.pr, nil))
+
+	ctx := z.downstreamCtx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	outputStream.Write(stream.NewSimpleDatapack(ctx, z.pr))
 
 	safeHandler.Start()
 
@@ -44,27 +57,21 @@ func (z *Zipper) SafeZip(inputStream *stream.IOStream, inputErr *stream.ErrorPas
 
 }
 
-func (z *Zipper) datapackHandleFn(rc io.ReadCloser, extra interface{}) error {
+func (z *Zipper) datapackHandleFn(ctx context.Context, rc io.ReadCloser) error {
 
 	if rc == nil {
-		return nil
-	}
-
-	if extra == nil {
 		return errors.New("extra should be a string represents filename, but got nil")
 	}
 
-	var filename string
+	v := ctx.Value(z.ctxKeyOfFileName)
+	if v == nil {
+		return fmt.Errorf("cannot find file name with key '%s'", z.ctxKeyOfFileName)
+	}
 
-	if z.getFilename != nil {
-		filename = z.getFilename(extra)
-	} else {
-		ok := false
-		filename, ok = extra.(string)
-		if !ok || len(strings.TrimSpace(filename)) == 0 {
-			return fmt.Errorf("extra should be a string represents filename, but got type = %s, value = %v",
-				reflect.TypeOf(extra).Name(), extra)
-		}
+	filename, ok := v.(string)
+	if !ok || len(strings.TrimSpace(filename)) == 0 {
+		return fmt.Errorf("ctx value with key '%s' should be a string represents filename, but got type = %s, value = %v",
+			z.ctxKeyOfFileName, reflect.TypeOf(v).Name(), v)
 	}
 
 	fw, err := z.zw.Create(filename)

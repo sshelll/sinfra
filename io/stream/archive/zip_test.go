@@ -2,6 +2,7 @@ package archive
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"io/fs"
@@ -21,7 +22,7 @@ func TestSafeZip(t *testing.T) {
 	fileStream, errPasser := stream.NewSafeIOStreamWriter(NewFileProducer()).Start()
 
 	zipper := NewZipper()
-	proc := stream.BuildProcChain(zipper.SafeZip)
+	proc := stream.BuildProcChain(zipper.Proc)
 
 	outputStream, outputErr := proc(fileStream, errPasser)
 
@@ -51,7 +52,7 @@ func TestZipWithUpstreamErr(t *testing.T) {
 	iostream, errPasser := stream.NewSafeIOStreamWriter(&ErrorProducer{}).Start()
 
 	zipper := NewZipper()
-	proc := stream.BuildProcChain(zipper.SafeZip)
+	proc := stream.BuildProcChain(zipper.Proc)
 
 	outputStream, outputErr := proc(iostream, errPasser)
 
@@ -63,7 +64,7 @@ func TestZipWithUpstreamErr(t *testing.T) {
 		}
 		t.Log("start handling input")
 		rc := data.ReadCloser()
-		t.Logf("rc is nil = %v, extra = %v", rc == nil, data.Extra())
+		t.Logf("rc is nil = %v", rc == nil)
 		bs, err := ioutil.ReadAll(rc)
 		t.Logf("err = %v", err)
 		t.Logf("input is %s", string(bs))
@@ -107,7 +108,7 @@ func (p *FileProducer) Next() (datapack stream.Datapack, hasNext bool, err error
 		return nil, false, err
 	}
 
-	datapack = stream.NewSimpleDatapack(f, f.Name())
+	datapack = stream.NewSimpleDatapack(context.WithValue(context.Background(), "filename", f.Name()), f)
 
 	p.idx++
 	hasNext = p.idx < len(p.files)
@@ -128,7 +129,7 @@ func (p *ErrorProducer) Next() (datapack stream.Datapack, hasNext bool, err erro
 	p.idx++
 	r := bytes.NewBufferString("hello world")
 	rc := io.NopCloser(r)
-	datapack = stream.NewSimpleDatapack(rc, "hello.txt")
+	datapack = stream.NewSimpleDatapack(context.WithValue(context.Background(), "filename", "hello.txt"), rc)
 	hasNext = true
 	return
 }

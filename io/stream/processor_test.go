@@ -2,6 +2,7 @@ package stream
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"testing"
@@ -100,7 +101,7 @@ func newSimpleProcessor(procName string) Processor {
 				reader := bytes.NewBuffer([]byte(modifiedStr))
 
 				// send to donwstream
-				datapack := NewSimpleDatapack(ioutil.NopCloser(reader), procName)
+				datapack := NewSimpleDatapack(context.Background(), ioutil.NopCloser(reader))
 				outputStream.Write(datapack)
 			}
 
@@ -136,7 +137,7 @@ func (s *simpleProducer) Next() (datapack Datapack, hasNext bool, err error) {
 	// mock data
 	data := fmt.Sprintf("%dth data from upstream", s.curCnt)
 	rc := ioutil.NopCloser(bytes.NewBuffer([]byte(data)))
-	datapack = NewSimpleDatapack(rc, "upstream")
+	datapack = NewSimpleDatapack(context.Background(), rc)
 
 	// cal hasNext
 	s.curCnt++

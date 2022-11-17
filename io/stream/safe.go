@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"context"
 	"fmt"
 	"io"
 )
@@ -62,14 +63,14 @@ func (s *SafeIOStreamWriter) Start() (*IOStream, *ErrorPasser) {
 type SafeIOStreamHandler struct {
 	inputStream, outputStream *IOStream
 	inputErr, outputErr       *ErrorPasser
-	datapackHandler           func(rc io.ReadCloser, extra interface{}) error
+	datapackHandler           func(ctx context.Context, rc io.ReadCloser) error
 	finalizer                 func()
 }
 
 func NewSafeIOStreamHandler(
 	inputStream *IOStream,
 	inputErr *ErrorPasser,
-	handler func(io.ReadCloser, interface{}) error,
+	handler func(context.Context, io.ReadCloser) error,
 	finalizer func(),
 ) *SafeIOStreamHandler {
 
@@ -129,12 +130,12 @@ func (s *SafeIOStreamHandler) Start() {
 				break
 			}
 
-			rc, extra := datapack.ReadCloser(), datapack.Extra()
+			rc, ctx := datapack.ReadCloser(), datapack.Context()
 			if rc == nil {
 				continue
 			}
 
-			if err := s.datapackHandler(rc, extra); err != nil {
+			if err := s.datapackHandler(ctx, rc); err != nil {
 				outputErr.Put(err)
 				break
 			}
