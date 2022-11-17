@@ -27,7 +27,6 @@ func (s *SafeIOStreamWriter) Start() (*IOStream, *ErrorPasser) {
 	go func() {
 
 		defer func() {
-
 			if r := recover(); r != nil {
 				err := fmt.Errorf("SafeIOStreamWriter panicked, panic info = %v", r)
 				outputErr.Put(err)
@@ -35,7 +34,6 @@ func (s *SafeIOStreamWriter) Start() (*IOStream, *ErrorPasser) {
 
 			outputErr.Close()
 			outputStream.Close()
-
 		}()
 
 		for {
@@ -44,11 +42,13 @@ func (s *SafeIOStreamWriter) Start() (*IOStream, *ErrorPasser) {
 				outputErr.Put(err)
 				break
 			}
+
 			if datapack == nil {
 				continue
 			}
-			outputStream.Write(datapack)
-			if !hasNext {
+
+			streamClosed := outputStream.Write(datapack)
+			if !hasNext || streamClosed {
 				break
 			}
 		}
@@ -111,11 +111,16 @@ func (s *SafeIOStreamHandler) Start() {
 
 		defer func() {
 			if r := recover(); r != nil {
+				// if current processor panicked, close inputStream manually
+				s.inputStream.Close()
 				outputErr.Put(fmt.Errorf("SafeIOStreamHandler panicked, err = %v", r))
 			}
+
 			outputErr.Close()
 			outputStream.Close()
-			s.finalizer()
+			if s.finalizer != nil {
+				s.finalizer()
+			}
 		}()
 
 		for {
