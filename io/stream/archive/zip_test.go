@@ -1,6 +1,7 @@
 package archive
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"errors"
@@ -16,6 +17,18 @@ import (
 	"github.com/SCU-SJL/sinfra/io/stream"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestZipWithFilepath(t *testing.T) {
+	zipFile, _ := os.Create("tmp.zip")
+	zw := zip.NewWriter(zipFile)
+	dst, err := zw.Create("./dir/zip_test.go")
+	assert.Nil(t, err)
+	src, _ := os.Open("./zip_test.go")
+	_, err = io.Copy(dst, src)
+	assert.Nil(t, err)
+	src.Close()
+	zw.Close()
+}
 
 func TestSafeZip(t *testing.T) {
 
