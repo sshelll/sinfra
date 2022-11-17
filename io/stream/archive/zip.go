@@ -12,9 +12,10 @@ import (
 )
 
 type Zipper struct {
-	zw *zip.Writer
-	pr *io.PipeReader
-	pw *io.PipeWriter
+	zw          *zip.Writer
+	pr          *io.PipeReader
+	pw          *io.PipeWriter
+	getFilename func(extra interface{}) string
 }
 
 func NewZipper() *Zipper {
@@ -24,6 +25,11 @@ func NewZipper() *Zipper {
 	return zipper
 }
 
+func (z *Zipper) SetGetFileNameFromExtraFn(fn func(extra interface{}) string) {
+	z.getFilename = fn
+}
+
+// SafeZip note that outputStream only contains one datapack.
 func (z *Zipper) SafeZip(inputStream *stream.IOStream, inputErr *stream.ErrorPasser) (
 	outputStream *stream.IOStream, outputErr *stream.ErrorPasser) {
 
@@ -48,10 +54,17 @@ func (z *Zipper) datapackHandleFn(rc io.ReadCloser, extra interface{}) error {
 		return errors.New("extra should be a string represents filename, but got nil")
 	}
 
-	filename, ok := extra.(string)
-	if !ok || len(strings.TrimSpace(filename)) == 0 {
-		return fmt.Errorf("extra should be a string represents filename, but got type = %s, value = %v",
-			reflect.TypeOf(extra).Name(), extra)
+	var filename string
+
+	if z.getFilename != nil {
+		filename = z.getFilename(extra)
+	} else {
+		ok := false
+		filename, ok = extra.(string)
+		if !ok || len(strings.TrimSpace(filename)) == 0 {
+			return fmt.Errorf("extra should be a string represents filename, but got type = %s, value = %v",
+				reflect.TypeOf(extra).Name(), extra)
+		}
 	}
 
 	fw, err := z.zw.Create(filename)

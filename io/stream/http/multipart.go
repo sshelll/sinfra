@@ -1,9 +1,12 @@
 package http
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"github.com/SCU-SJL/sinfra/io/stream"
@@ -18,6 +21,8 @@ type MultipartUploader struct {
 	headers   map[string]string
 	cookies   []*http.Cookie
 	fieldName string
+
+	getFilename func(extra interface{}) string
 }
 
 func NewMultipartUploader() *MultipartUploader {
@@ -27,6 +32,11 @@ func NewMultipartUploader() *MultipartUploader {
 	return uploader
 }
 
+func (u *MultipartUploader) SetGetFileNameFromExtraFn(fn func(extra interface{}) string) {
+	u.getFilename = fn
+}
+
+// SafeUpload note that outputStream only contains one datapack.
 func (u *MultipartUploader) SafeUpload(inputStream *stream.IOStream, inputErr *stream.ErrorPasser) (
 	outputStream *stream.IOStream, outputErr *stream.ErrorPasser) {
 
@@ -78,6 +88,27 @@ func (u *MultipartUploader) buildHttpRequest() (*http.Request, error) {
 }
 
 func (u *MultipartUploader) datapackHandleFn(rc io.ReadCloser, extra interface{}) error {
+
+	if rc == nil {
+		return nil
+	}
+
+	if extra == nil {
+		return errors.New("extra should be a string represents filename, but got nil")
+	}
+
+	var filename string
+
+	if u.getFilename != nil {
+		filename = u.getFilename(extra)
+	} else {
+		ok := false
+		filename, ok = extra.(string)
+		if !ok || len(strings.TrimSpace(filename)) == 0 {
+			return fmt.Errorf("extra should be a string represents filename, but got type = %s, value = %v",
+				reflect.TypeOf(extra).Name(), extra)
+		}
+	}
 
 	formFile, err := u.mw.CreateFormFile(u.fieldName, extra.(string))
 	if err != nil {
