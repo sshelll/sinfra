@@ -22,7 +22,7 @@ func main() {
 func testBatchDownloadToZipToUpload() {
 
 	// data src
-	downloader := NewFileDownloader([]string{"foo.txt", "bar.txt"})
+	downloader := NewFileDownloader([]string{"foo.txt", "bar.txt", "car.txt"})
 	iowriter := stream.NewSafeIOStreamWriter(downloader)
 
 	// stream procs
