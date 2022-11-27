@@ -10,7 +10,7 @@ import (
 
 	"github.com/SCU-SJL/sinfra/io/stream"
 	"github.com/SCU-SJL/sinfra/io/stream/archive"
-	streamhttp "github.com/SCU-SJL/sinfra/io/stream/http"
+	"github.com/SCU-SJL/sinfra/io/stream/mime"
 )
 
 const uploadURL = `http://localhost:8080/upload`
@@ -32,7 +32,7 @@ func testBatchDownloadToZipToUpload() {
 	)
 	zipper.SetCtxKeyOfFileName("filename")
 
-	multiparter := streamhttp.NewMultiparter()
+	multiparter := mime.NewMultiparter()
 	multiparter.SetCtxKeyOfFileName("filename")
 
 	proc := stream.BuildProcChain(zipper.Proc, multiparter.Proc)
@@ -71,7 +71,7 @@ func testDownloadToZipToUpload() {
 	zipper.SetDownstreamCtx(ctx)
 	zipper.SetCtxKeyOfFileName("zip_filename")
 
-	multiparter := streamhttp.NewMultiparter()
+	multiparter := mime.NewMultiparter()
 	multiparter.SetCtxKeyOfFileName("mp_filename")
 
 	streamProc := stream.BuildProcChain(zipper.Proc, multiparter.Proc)

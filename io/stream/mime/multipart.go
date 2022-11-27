@@ -1,4 +1,4 @@
-package http
+package mime
 
 import (
 	"context"
@@ -35,6 +35,10 @@ func (m *Multiparter) SetDownstreamCtx(ctx context.Context) {
 
 func (m *Multiparter) SetCtxKeyOfFileName(key string) {
 	m.ctxKeyOfFileName = key
+}
+
+func (m *Multiparter) SetFieldName(fieldName string) {
+	m.fieldName = fieldName
 }
 
 func (m *Multiparter) FormDataContentType() string {
