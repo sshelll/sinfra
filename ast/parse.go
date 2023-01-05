@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	serr "github.com/SCU-SJL/sinfra/error"
+	serr "github.com/sshelll/sinfra/error"
 )
 
 func Parse(path string) (*File, error) {

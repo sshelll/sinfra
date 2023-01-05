@@ -5,7 +5,7 @@ import (
 
 	. "reflect"
 
-	"github.com/SCU-SJL/sinfra/conv"
+	"github.com/sshelll/sinfra/conv"
 	"github.com/stretchr/testify/assert"
 )
 

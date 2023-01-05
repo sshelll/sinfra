@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 
-	"github.com/SCU-SJL/sinfra/conv"
+	"github.com/sshelll/sinfra/conv"
 )
 
 type File struct {

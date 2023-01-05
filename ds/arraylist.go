@@ -6,7 +6,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/SCU-SJL/sinfra/util"
+	"github.com/sshelll/sinfra/util"
 )
 
 type ArrayList struct {

@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/SCU-SJL/sinfra/io/stream"
+	"github.com/sshelll/sinfra/io/stream"
 	"github.com/stretchr/testify/assert"
 )
 

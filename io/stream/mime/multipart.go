@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/SCU-SJL/sinfra/io/stream"
+	"github.com/sshelll/sinfra/io/stream"
 )
 
 type Multiparter struct {

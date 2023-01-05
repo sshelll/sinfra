@@ -1,6 +1,6 @@
 package ds
 
-import "github.com/SCU-SJL/sinfra/util"
+import "github.com/sshelll/sinfra/util"
 
 type Trie struct {
 	root *trieNode

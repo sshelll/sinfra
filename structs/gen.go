@@ -5,7 +5,7 @@ import (
 	. "reflect"
 	"unsafe"
 
-	"github.com/SCU-SJL/sinfra/util"
+	"github.com/sshelll/sinfra/util"
 )
 
 type GenOption struct {

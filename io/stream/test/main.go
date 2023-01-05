@@ -8,9 +8,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/SCU-SJL/sinfra/io/stream"
-	"github.com/SCU-SJL/sinfra/io/stream/archive"
-	"github.com/SCU-SJL/sinfra/io/stream/mime"
+	"github.com/sshelll/sinfra/io/stream"
+	"github.com/sshelll/sinfra/io/stream/archive"
+	"github.com/sshelll/sinfra/io/stream/mime"
 )
 
 const uploadURL = `http://localhost:8080/upload`
