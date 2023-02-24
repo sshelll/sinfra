@@ -117,13 +117,13 @@ func (list *ArrayList) Remove(elem interface{}) bool {
 func (list *ArrayList) RemoveAll(elemList ...interface{}) bool {
 	list.mu.Lock()
 	defer list.mu.Unlock()
-	idxSet := util.NewSet()
+	idxSet := util.NewSet[int]()
 	for _, elem := range elemList {
 		if idx := list.indexOf(elem, false); idx >= 0 {
 			idxSet.Add(idx)
 		}
 	}
-	idxList := idxSet.ToIntArray()
+	idxList := idxSet.ToArray()
 	list.removeWithIndexList(idxList)
 	list.size -= len(elemList)
 	return true
