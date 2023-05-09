@@ -68,7 +68,7 @@ func TestGenStruct(t *testing.T) {
 	t.Log(inst.SubSlice[1].Name)
 
 	inst = Gen(TypeOf(TestStruct{}), &GenOption{MaxDepth: conv.IntPtr(1)}).(TestStruct)
-	t.Logf("%v", inst)
+	t.Logf("%+v", inst)
 	t.Log(inst.Sub)
 
 }
