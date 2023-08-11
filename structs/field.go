@@ -2,7 +2,6 @@ package structs
 
 import (
 	"reflect"
-	"strings"
 )
 
 // ExtractStructFieldValues this method will extract real val if a field is a non-nil ptr.
@@ -38,68 +37,74 @@ func ExtractStructFieldValues(v reflect.Value) (fvs []interface{}) {
 
 }
 
+// CheckRequired checks if a ptr field was set in the give struct, it returns a slice of missing field names.
+// The tag name can be customized, like "required", and the tag value must be 'true' when a field is required.
 func CheckRequired(v reflect.Value, tag string) (missing []string) {
+	var callback func(name string, fv reflect.Value, ft reflect.StructField)
+	callback = func(name string, fv reflect.Value, ft reflect.StructField) {
+		if ft.Tag.Get(tag) != "true" {
+			return
+		}
+		switch fv.Kind() {
+		case reflect.Invalid:
+			missing = append(missing, name)
+		case reflect.Interface:
+			if fv.IsNil() {
+				missing = append(missing, name)
+			}
+		case reflect.Ptr:
+			if fv.IsNil() {
+				missing = append(missing, name)
+			}
+			missing = append(missing, CheckRequired(fv, tag)...)
+		case reflect.Slice, reflect.Array, reflect.Map:
+			if fv.Len() == 0 {
+				missing = append(missing, name)
+			}
+		}
+	}
+	WalkStruct(v, callback)
+	return
+}
+
+// WalkStruct walks each field of a struct recursively.
+// The callback function will be called for each field.
+// Param of callback:
+// name is the full name of the field, starts with package name,
+// fv is the reflect.Value of the field,
+// ft is the type of the field.
+func WalkStruct(v reflect.Value, callback func(name string, fv reflect.Value, ft reflect.StructField)) {
 	if !v.IsValid() {
 		return
 	}
 
-	var check func(name string, v reflect.Value, tag string) (missing []string)
-	check = func(name string, v reflect.Value, tag string) (missing []string) {
-		for v.Kind() == reflect.Ptr {
-			if v.IsNil() {
-				return
-			}
-			v = v.Elem()
-		}
-
-		if v.Kind() != reflect.Struct {
+	for v.Kind() == reflect.Ptr {
+		if v.IsNil() {
 			return
 		}
+		v = v.Elem()
+	}
 
-		for i, n := 0, v.NumField(); i < n; i++ {
-			fv := v.Field(i)
-			ft := v.Type().Field(i)
-
-			if tagv := ft.Tag.Get(tag); tagv != "true" {
-				continue
-			}
-
-			if ft.Anonymous || ft.Type.Kind() == reflect.Struct {
-				missing = append(missing, check(name+"."+ft.Name, fv, tag)...)
-				continue
-			}
-
-			switch fv.Kind() {
-			case reflect.Invalid:
-				missing = append(missing, name+"."+ft.Name)
-			case reflect.Interface:
-				if fv.IsNil() {
-					missing = append(missing, name+"."+ft.Name)
-				}
-			case reflect.Ptr:
-				if fv.IsNil() {
-					missing = append(missing, name+"."+ft.Name)
-				}
-				missing = append(missing, check(name+"."+ft.Name, fv, tag)...)
-			case reflect.Slice, reflect.Array, reflect.Map:
-				if fv.Len() == 0 {
-					missing = append(missing, name+"."+ft.Name)
-				}
-			}
-		}
-
+	if v.Kind() != reflect.Struct {
 		return
 	}
 
-	typeName := v.Type().String()
-	splited := strings.Split(typeName, ".")
-	if len(splited) > 0 {
-		typeName = splited[len(splited)-1]
+	var walk func(name string, v reflect.Value)
+	walk = func(name string, v reflect.Value) {
+		for i, n := 0, v.NumField(); i < n; i++ {
+			fv := v.Field(i)
+			ft := v.Type().Field(i)
+			fname := name + "." + ft.Name
+			if ft.Anonymous || ft.Type.Kind() == reflect.Struct {
+				walk(fname, fv)
+			}
+			callback(fname, fv, ft)
+		}
 	}
-	if len(typeName) == 0 {
-		typeName = "$"
-	}
-	missing = check(typeName, v, tag)
 
-	return
+	typeName := v.Type().String()
+	if len(typeName) == 0 {
+		typeName = "$unknown"
+	}
+	walk(typeName, v)
 }
