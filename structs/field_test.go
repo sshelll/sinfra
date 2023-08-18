@@ -55,9 +55,11 @@ func TestExtractNormalTypeValue(t *testing.T) {
 }
 
 type S1 struct {
-	ID        *string `required:"true"`
-	Name      string
-	Interfase interface{} `required:"true"`
+	ID        *string           `required:"true"`
+	Name      string            `required:"true,allowEmpty"`
+	Interfase interface{}       `required:"true"`
+	Slice     []int             `required:"true"`
+	Map       map[string]string `required:"true,allowEmpty"`
 	Anon      struct {
 		Anon1 *int  `required:"true"`
 		Anon2 []int `required:"true"`
@@ -107,4 +109,31 @@ func TestCheckRequired(t *testing.T) {
 
 	n := reflect.ValueOf(nil)
 	missing = CheckRequired(n, "required")
+}
+
+func TestCheckRequiredWithEmptyField(t *testing.T) {
+	s := &S1{
+		ID:        conv.StrPtr("id"),
+		Name:      "",
+		Interfase: nil,
+		Slice:     []int{},
+		Map:       map[string]string{},
+		Anon: struct {
+			Anon1 *int  `required:"true"`
+			Anon2 []int `required:"true"`
+			Anon3 string
+		}{
+			Anon1: conv.IntPtr(1),
+			Anon2: []int{1, 2, 3},
+			Anon3: "anon3",
+		},
+		S2: &S2{},
+	}
+
+	missing := CheckRequired(reflect.ValueOf(s), "required")
+	t.Log(missing)
+
+	s.Map = nil
+	missing = CheckRequired(reflect.ValueOf(s), "required")
+	t.Log(missing)
 }
