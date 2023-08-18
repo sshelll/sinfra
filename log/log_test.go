@@ -30,7 +30,7 @@ func TestLog(t *testing.T) {
 
 func TestLogger(t *testing.T) {
 	ctx := GenCtxWithLogID()
-	logger := NewLogger(ctx)
+	logger := NewLogger(ctx).WithLogIDHook()
 	logger.Info("info, %d", 1)
 	logger.Warn("warn, %d", 2)
 	logger.Error("error, %d", 3)

@@ -14,12 +14,16 @@ func NewLogger(ctx context.Context) *Logger {
 	logger := &Logger{
 		Entry: logrus.NewEntry(logrus.New()).WithContext(ctx),
 	}
-	logger.AddHook(NewContextLogIDHook())
 	return logger
 }
 
 func (logger *Logger) AddHook(hook logrus.Hook) {
 	logger.Logger.AddHook(hook)
+}
+
+func (logger *Logger) WithLogIDHook() *Logger {
+	logger.AddHook(NewContextLogIDHook())
+	return logger
 }
 
 func (logger *Logger) WithContext(ctx context.Context) *Logger {
