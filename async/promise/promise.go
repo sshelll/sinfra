@@ -90,12 +90,8 @@ func (p *Promise) Await() {
 	select {
 	case <-p.done:
 	}
-}
-
-func (p *Promise) Panic() {
-	p.Await()
-	if r := p.rejected; r != nil {
-		panic(r)
+	if p.state == REJECTED {
+		panic(p.rejected)
 	}
 }
 
@@ -107,6 +103,7 @@ func (p *Promise) Then(onResolve func(any) any) *Promise {
 		lastResult := p.Result()
 		if newp, ok := lastResult.(*Promise); ok {
 			newp.Await()
+			lastResult = newp.Result()
 		}
 		if p.state == FULFILLED {
 			// handle the result first, then mark as resolved
@@ -146,9 +143,11 @@ func (p *Promise) Final(fn func(any)) *Promise {
 func (p *Promise) resolve(v any) {
 	p.state = FULFILLED
 	p.resolved = v
+	p.rejected = nil
 }
 
 func (p *Promise) reject(v any) {
 	p.state = REJECTED
 	p.rejected = v
+	p.resolved = nil
 }

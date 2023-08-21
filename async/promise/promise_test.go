@@ -2,6 +2,7 @@ package promise
 
 import (
 	"encoding/json"
+	"net/http"
 	"testing"
 	"time"
 )
@@ -59,24 +60,6 @@ func TestPromiseCatch(t *testing.T) {
 	time.Sleep(time.Millisecond * 500)
 }
 
-func TestPromiseComplex(t *testing.T) {
-	p := New(func(resolve, reject func(v any)) {
-		time.Sleep(time.Millisecond * 500)
-		reject("main failed")
-	}).Catch(func(a any) {
-		t.Log("catch 1st, reject:", a)
-	}).Then(func(a any) any {
-		t.Log("then 1st, resolve:", a)
-		panic("then 1st panic")
-	})
-	p.Await()
-	t.Log("final state =", p.State().String())
-	p.Catch(func(a any) {
-		t.Log("catch 2nd, reject:", a)
-	})
-	t.Log("final state 2nd =", p.State().String())
-}
-
 func TestPromiseCatchThenError(t *testing.T) {
 	p := New(func(resolve, reject func(v any)) {
 		time.Sleep(time.Millisecond * 500)
@@ -88,9 +71,6 @@ func TestPromiseCatchThenError(t *testing.T) {
 		panic("then 1st panic")
 	}).Catch(func(a any) {
 		t.Log("catch 2nd, reject:", a)
-	}).Then(func(a any) any {
-		t.Log("then 2nd, resolve:", a)
-		panic("then 2nd panic")
 	})
 	p.Await()
 	t.Log("final state =", p.State().String())
@@ -118,13 +98,8 @@ func TestPromiseNotCatchThenError(t *testing.T) {
 		t.Log("then 1st, resolve:", a)
 		panic("then 1st panic")
 	})
-	p1 := p0.Then(func(a any) any {
-		t.Log("then 2nd, resolve:", a)
-		return "then 2nd"
-	})
-	p1.Await()
+	p0.Await()
 	t.Log("p0 final state =", p0.State().String())
-	t.Log("p1 final state =", p1.State().String())
 }
 
 func TestPromiseWithRealOp(t *testing.T) {
@@ -167,6 +142,55 @@ func TestPromiseThenReturnAnotherPromise(t *testing.T) {
 		t.Log("then 2nd, resolve:", a)
 		return "p final result from 2nd then"
 	})
+	p.Await()
+	t.Log("outer final state =", p.State().String())
+	t.Log("outer final result =", p.Result())
+}
+
+func TestPromiseWithRealHttpReq(t *testing.T) {
+	api := func(url string) *Promise {
+		return New(func(resolve, reject func(v any)) {
+			resp, err := http.Get(url)
+			if err != nil {
+				reject(err)
+			} else {
+				if resp.StatusCode != http.StatusOK {
+					reject(resp.Status)
+				} else {
+					resolve(resp.Status)
+				}
+			}
+		}).Catch(func(a any) {
+			t.Log("catch error:", a)
+		})
+	}
+
+	seq := func() *Promise {
+		return New(func(resolve, reject func(v any)) {
+			resolve("seq")
+		}).Then(func(a any) any {
+			t.Log("seq 1st start, resove result =", a)
+			return api("https://cdn.staticfile.org/jquery/2.0.3/jquery.min.js")
+		}).Then(func(a any) any {
+			t.Log("seq 2nd start, resove result =", a)
+			return api("https://static.runoob.com/assets/upvotejs/dist/upvotejs/upvotejs.jquery.js")
+		}).Then(func(a any) any {
+			t.Log("seq 3rd start, resove result =", a)
+			return api("https://www.qq.com")
+		}).Then(func(a any) any {
+			t.Log("seq 4th start, resove result =", a)
+			return "done"
+		}).Catch(func(a any) {
+			t.Log("catch error:", a)
+		}).Then(func(a any) any {
+			t.Log("seq 5th start, resove result =", a)
+			return "done"
+		}).Final(func(a any) {
+			t.Log("final func, result =", a)
+		})
+	}
+
+	p := seq()
 	p.Await()
 	t.Log("outer final state =", p.State().String())
 	t.Log("outer final result =", p.Result())
