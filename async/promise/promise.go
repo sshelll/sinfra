@@ -1,7 +1,6 @@
 package promise
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -32,14 +31,17 @@ type Promise struct {
 	resolved interface{}
 	rejected interface{}
 	catch    func(any)
-	mu       *sync.Mutex
+	catchMu  *sync.Mutex
+	final    func(any)
+	finalMu  *sync.Mutex
 }
 
 func New(fn func(resolve, reject func(v any))) *Promise {
 	p := &Promise{
-		state: PENDING,
-		done:  make(chan struct{}),
-		mu:    &sync.Mutex{},
+		state:   PENDING,
+		done:    make(chan struct{}),
+		catchMu: &sync.Mutex{},
+		finalMu: &sync.Mutex{},
 	}
 
 	go func() {
@@ -50,13 +52,18 @@ func New(fn func(resolve, reject func(v any))) *Promise {
 				p.state = REJECTED
 			}
 			if p.state == REJECTED {
-				p.mu.Lock()
+				p.catchMu.Lock()
 				if p.catch != nil {
 					p.catch(p.rejected)
 					p.state = FULFILLED
 				}
-				p.mu.Unlock()
+				p.catchMu.Unlock()
 			}
+			p.finalMu.Lock()
+			if p.final != nil {
+				p.final(p.Result())
+			}
+			p.finalMu.Unlock()
 		}()
 		fn(p.Resolve, p.Reject)
 	}()
@@ -78,6 +85,13 @@ func (p *Promise) State() State {
 	return p.state
 }
 
+func (p *Promise) Result() any {
+	if p.state == REJECTED {
+		return p.rejected
+	}
+	return p.resolved
+}
+
 func (p *Promise) Await() {
 	select {
 	case <-p.done:
@@ -91,25 +105,38 @@ func (p *Promise) Panic() {
 	}
 }
 
-func (p *Promise) Then(cb func(any) any) *Promise {
+func (p *Promise) Then(onResolve func(any) any) *Promise {
 	return New(func(resolve, reject func(v any)) {
-		fmt.Println("then called")
 		p.Await()
 		if p.state == FULFILLED {
-			resolve(cb(p.resolved))
+			resolve(onResolve(p.resolved))
+		} else {
+			reject(p.rejected)
 		}
 	})
 }
 
-func (p *Promise) Catch(cb func(any)) *Promise {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (p *Promise) Catch(onReject func(any)) *Promise {
+	p.catchMu.Lock()
+	defer p.catchMu.Unlock()
 	select {
 	case <-p.done:
-		cb(p.rejected)
+		onReject(p.rejected)
 		p.state = FULFILLED
 	default:
 	}
-	p.catch = cb
+	p.catch = onReject
+	return p
+}
+
+func (p *Promise) Final(fn func(any)) *Promise {
+	p.finalMu.Lock()
+	defer p.finalMu.Unlock()
+	select {
+	case <-p.done:
+		fn(p.Result())
+	default:
+	}
+	p.final = fn
 	return p
 }
