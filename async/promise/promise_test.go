@@ -150,3 +150,24 @@ func TestPromiseWithRealOp(t *testing.T) {
 	t.Log("outer final state =", p.State().String())
 	t.Log("outer final result =", p.Result())
 }
+
+func TestPromiseThenReturnAnotherPromise(t *testing.T) {
+	p := New(func(resolve, reject func(v any)) {
+		time.Sleep(time.Millisecond * 500)
+		resolve("1st")
+	}).Then(func(a any) any {
+		t.Log("then 1st, resolve:", a)
+		return New(func(resolve, reject func(v any)) {
+			time.Sleep(time.Millisecond * 500)
+			resolve("inside new promise")
+		}).Final(func(a any) {
+			t.Log("final result from inner promise =", a)
+		})
+	}).Then(func(a any) any {
+		t.Log("then 2nd, resolve:", a)
+		return "p final result from 2nd then"
+	})
+	p.Await()
+	t.Log("outer final state =", p.State().String())
+	t.Log("outer final result =", p.Result())
+}
