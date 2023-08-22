@@ -30,6 +30,7 @@ type Promise struct {
 	done     chan struct{}
 	resolved interface{}
 	rejected interface{}
+	resultMu *sync.Mutex
 	catch    func(any)
 	catchMu  *sync.Mutex
 	final    func(any)
@@ -38,10 +39,11 @@ type Promise struct {
 
 func New(fn func(resolve, reject func(v any))) *Promise {
 	p := &Promise{
-		state:   PENDING,
-		done:    make(chan struct{}),
-		catchMu: &sync.Mutex{},
-		finalMu: &sync.Mutex{},
+		state:    PENDING,
+		done:     make(chan struct{}),
+		resultMu: &sync.Mutex{},
+		catchMu:  &sync.Mutex{},
+		finalMu:  &sync.Mutex{},
 	}
 
 	go func() {
@@ -95,8 +97,13 @@ func (p *Promise) Await() {
 	}
 }
 
+func (p *Promise) Done() <-chan struct{} {
+	return p.done
+}
+
 func (p *Promise) Then(onResolve func(any) any) *Promise {
 	return New(func(resolve, reject func(v any)) {
+		// wait for the last promise to be done
 		p.Await()
 		// if the result of the last promise is another promise,
 		// wait for it to be done
@@ -141,12 +148,22 @@ func (p *Promise) Final(fn func(any)) *Promise {
 }
 
 func (p *Promise) resolve(v any) {
+	p.resultMu.Lock()
+	defer p.resultMu.Unlock()
+	if p.state != PENDING {
+		return
+	}
 	p.state = FULFILLED
 	p.resolved = v
 	p.rejected = nil
 }
 
 func (p *Promise) reject(v any) {
+	p.resultMu.Lock()
+	defer p.resultMu.Unlock()
+	if p.state != PENDING {
+		return
+	}
 	p.state = REJECTED
 	p.rejected = v
 	p.resolved = nil
