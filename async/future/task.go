@@ -69,6 +69,10 @@ func (t *Task) Cancel() {
 	t.canceler()
 }
 
+func (t *Task) Done() <-chan struct{} {
+	return t.done
+}
+
 func (t *Task) State() State {
 	return t.state
 }
