@@ -49,12 +49,18 @@ func New(fn func(resolve, reject func(v any))) *Promise {
 	go func() {
 		// close chan must be the last step
 		defer close(p.done)
+
 		defer func() {
 			// panic protection
 			if r := recover(); r != nil {
-				p.rejected = r
-				p.state = REJECTED
+				p.reject(r)
 			}
+
+			// check state
+			if p.state == PENDING {
+				panic("promise: promise is still pending")
+			}
+
 			// catch error
 			if p.state == REJECTED {
 				p.catchMu.Lock()
@@ -64,6 +70,7 @@ func New(fn func(resolve, reject func(v any))) *Promise {
 				}
 				p.catchMu.Unlock()
 			}
+
 			// final
 			p.finalMu.Lock()
 			if p.final != nil {
@@ -71,6 +78,7 @@ func New(fn func(resolve, reject func(v any))) *Promise {
 			}
 			p.finalMu.Unlock()
 		}()
+
 		fn(p.resolve, p.reject)
 	}()
 
@@ -125,13 +133,15 @@ func (p *Promise) Then(onResolve func(any) any) *Promise {
 func (p *Promise) Catch(onReject func(any)) *Promise {
 	p.catchMu.Lock()
 	defer p.catchMu.Unlock()
+	p.catch = onReject
 	select {
 	case <-p.done:
-		onReject(p.rejected)
-		p.state = FULFILLED
+		if p.state == REJECTED {
+			onReject(p.rejected)
+			p.state = FULFILLED
+		}
 	default:
 	}
-	p.catch = onReject
 	return p
 }
 
