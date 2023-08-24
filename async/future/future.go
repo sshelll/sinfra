@@ -5,9 +5,10 @@ import (
 )
 
 type Future interface {
-	Get() any
-	GetWithTimeout(timeout time.Duration) any
-	Cancel()
+	ID() string
+	Get() (any, error)
+	GetWithTimeout(timeout time.Duration) (any, error)
+	Cancel(error)
 	IsDone() bool
 	State() State
 }
@@ -16,24 +17,28 @@ type taskFuture struct {
 	task *Task
 }
 
-func (tf *taskFuture) Get() any {
+func (tf *taskFuture) ID() string {
+	return tf.task.id
+}
+
+func (tf *taskFuture) Get() (any, error) {
 	select {
 	case <-tf.task.done:
 		return tf.task.Result()
 	}
 }
 
-func (tf *taskFuture) GetWithTimeout(timeout time.Duration) any {
+func (tf *taskFuture) GetWithTimeout(timeout time.Duration) (any, error) {
 	select {
 	case <-tf.task.done:
 		return tf.task.Result()
 	case <-time.After(timeout):
-		return nil
+		return nil, nil
 	}
 }
 
-func (tf *taskFuture) Cancel() {
-	tf.task.Cancel()
+func (tf *taskFuture) Cancel(err error) {
+	tf.task.Cancel(err)
 }
 
 func (tf *taskFuture) IsDone() bool {

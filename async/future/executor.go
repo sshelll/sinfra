@@ -1,6 +1,7 @@
 package future
 
 import (
+	"errors"
 	"sync"
 )
 
@@ -22,6 +23,12 @@ func NewExecutor(limit int) *Executor {
 
 func (exec *Executor) Submit(task *Task) Future {
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				task.Cancel(errors.New("executor closed"))
+				task.finalize()
+			}
+		}()
 		exec.taskCh <- task
 	}()
 	return &taskFuture{task: task}
@@ -38,9 +45,6 @@ func (exec *Executor) Wait() {
 func (exec *Executor) run() {
 	for {
 		task, ok := <-exec.taskCh
-		if !ok {
-			break
-		}
 		if task == nil {
 			continue
 		}
@@ -49,5 +53,8 @@ func (exec *Executor) run() {
 			task.Run(exec.wg)
 			<-exec.sema
 		}(task)
+		if !ok {
+			break
+		}
 	}
 }
