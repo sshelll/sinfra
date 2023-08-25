@@ -90,7 +90,7 @@ func TestClose(t *testing.T) {
 }
 
 func TestCloseTaskBeforeSubmit(t *testing.T) {
-	exec := NewExecutor(4)
+	exec := NewExecutor[any](4)
 	task := NewTask(context.Background(), "closed_task", time.Second, func(ctx context.Context) any {
 		panic("should not call me")
 	})
