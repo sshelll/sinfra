@@ -26,29 +26,32 @@ func (s State) String() string {
 	}
 }
 
-type Task struct {
+type Callback[T any] func(context.Context) T
+
+// Task T is the return type of the task, see Callback.
+type Task[T any] struct {
 	id        string
-	fn        func(ctx context.Context) any
+	fn        Callback[T]
 	ctx       context.Context
 	canceler  context.CancelCauseFunc
 	tcanceler context.CancelFunc
 
 	state      State
 	done       chan struct{}
-	result     any
+	result     T
 	failedInfo error
 }
 
-func NewTask(ctx context.Context, id string, timeout time.Duration, fn func(ctx context.Context) any) *Task {
+func NewTask[T any](ctx context.Context, id string, timeout time.Duration, callback Callback[T]) *Task[T] {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	// set timeout ctx first to make sure we can get the timeout error
-	tctx, tcancelFn := context.WithTimeoutCause(ctx, timeout, fmt.Errorf("task timeout: %v", timeout))
+	tctx, tcancelFn := context.WithTimeoutCause(ctx, timeout, fmt.Errorf("task timeout after %v", timeout))
 	cctx, cancelFn := context.WithCancelCause(tctx)
-	return &Task{
+	return &Task[T]{
 		id:        id,
-		fn:        fn,
+		fn:        callback,
 		ctx:       cctx,
 		canceler:  cancelFn,
 		tcanceler: tcancelFn,
@@ -57,13 +60,15 @@ func NewTask(ctx context.Context, id string, timeout time.Duration, fn func(ctx 
 	}
 }
 
-func (t *Task) Run(wg *sync.WaitGroup) {
+func (t *Task[T]) Run(wg *sync.WaitGroup) {
 	if t.IsDone() {
 		return
 	}
 
-	wg.Add(1)
-	defer wg.Done()
+	if wg != nil {
+		wg.Add(1)
+		defer wg.Done()
+	}
 
 	defer t.finalize()
 
@@ -77,11 +82,11 @@ func (t *Task) Run(wg *sync.WaitGroup) {
 	t.state = COMPLETED
 }
 
-func (t *Task) Cancel(err error) {
+func (t *Task[T]) Cancel(err error) {
 	t.canceler(err)
 }
 
-func (t *Task) IsDone() bool {
+func (t *Task[T]) IsDone() bool {
 	select {
 	case <-t.done:
 		return true
@@ -90,15 +95,15 @@ func (t *Task) IsDone() bool {
 	}
 }
 
-func (t *Task) State() State {
+func (t *Task[T]) State() State {
 	return t.state
 }
 
-func (t *Task) Result() (any, error) {
+func (t *Task[T]) Result() (T, error) {
 	return t.result, t.failedInfo
 }
 
-func (t *Task) finalize() {
+func (t *Task[T]) finalize() {
 	// mark task as done at last
 	defer close(t.done)
 
@@ -108,20 +113,18 @@ func (t *Task) finalize() {
 		t.tcanceler()
 	}()
 
-	// handle error and panic first
-	defer func() {
-		// panicked
-		if r := recover(); r != nil {
-			t.state = INCOMPLETE
-			err := fmt.Errorf("task panic: %v", r)
-			t.canceler(err)
-			t.failedInfo = err
-			return
-		}
-		// already canceled manually or by timeout
-		if err := context.Cause(t.ctx); err != nil {
-			t.state = INCOMPLETE
-			t.failedInfo = err
-		}
-	}()
+	// panicked
+	if r := recover(); r != nil {
+		t.state = INCOMPLETE
+		err := fmt.Errorf("task panic: %v", r)
+		t.canceler(err)
+		t.failedInfo = err
+		return
+	}
+
+	// already canceled manually or by timeout
+	if err := context.Cause(t.ctx); err != nil {
+		t.state = INCOMPLETE
+		t.failedInfo = err
+	}
 }

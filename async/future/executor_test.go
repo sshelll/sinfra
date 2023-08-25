@@ -11,37 +11,41 @@ import (
 )
 
 func TestFutureOK(t *testing.T) {
-	newTask := func(id int) *Task {
+	newTask := func(id int) *Task[int] {
 		idstr := fmt.Sprintf("task-%d", id)
-		return NewTask(nil, idstr, time.Second*5, func(ctx context.Context) any {
+		var callback Callback[int] = func(ctx context.Context) int {
 			for i := 0; i < 2; i++ {
 				select {
 				case <-ctx.Done():
-					return ctx.Err()
+					panic(context.Cause(ctx))
 				default:
-					t.Logf("[%d]task still running, loop:%d", id, i)
 				}
-				time.Sleep(time.Second)
+				time.Sleep(time.Millisecond * 100)
 			}
 			return id
-		})
+		}
+		task := NewTask(nil, idstr, time.Second*100, callback)
+		return task
 	}
-	exec := NewExecutor(4)
-	futures := make([]Future, 0, 6)
+
+	// submit tasks and get futures
+	futures := make([]Future[int], 0, 6)
 	for i := 0; i < 6; i++ {
-		f := exec.Submit(newTask(i))
+		f := Submit(newTask(i))
 		futures = append(futures, f)
 	}
-	exec.Wait()
+
+	// wait for futures
 	for _, f := range futures {
 		result, err := f.Get()
-		t.Logf("result of %s, result = %v, err = %v, state = %s, done = %v",
-			f.ID(), result, err, f.State().String(), f.IsDone())
+		assert.Nil(t, err)
+		assert.Equal(t, f.State(), COMPLETED)
+		assert.Equal(t, f.ID(), fmt.Sprintf("task-%d", result))
 	}
 }
 
 func TestFutureCanceledByUser(t *testing.T) {
-	newTask := func(id int) *Task {
+	newTask := func(id int) *Task[any] {
 		idstr := fmt.Sprintf("task-%d", id)
 		return NewTask(nil, idstr, time.Second*5, func(ctx context.Context) any {
 			for i := 0; i < 10; i++ {
@@ -49,15 +53,14 @@ func TestFutureCanceledByUser(t *testing.T) {
 				case <-ctx.Done():
 					return ctx.Err()
 				default:
-					t.Logf("[%d]task still running, loop:%d", id, i)
 				}
 				time.Sleep(time.Second)
 			}
 			return id
 		})
 	}
-	exec := NewExecutor(4)
-	futures := make([]Future, 0, 6)
+	exec := NewExecutor[any](4)
+	futures := make([]Future[any], 0, 6)
 	for i := 0; i < 6; i++ {
 		f := exec.Submit(newTask(i))
 		futures = append(futures, f)
@@ -69,14 +72,14 @@ func TestFutureCanceledByUser(t *testing.T) {
 		}
 	}()
 	for _, f := range futures {
-		result, err := f.Get()
-		t.Logf("result of %s, result = %v, err = %v, state = %s, done = %v",
-			f.ID(), result, err, f.State().String(), f.IsDone())
+		_, err := f.Get()
+		assert.NotNil(t, err)
+		assert.Equal(t, f.State(), INCOMPLETE)
 	}
 }
 
-func TestCloseExcutor(t *testing.T) {
-	exec := NewExecutor(4)
+func TestClose(t *testing.T) {
+	exec := NewExecutor[any](4)
 	exec.Close()
 	future := exec.Submit(NewTask(nil, "task-0", time.Second*5, func(ctx context.Context) any {
 		panic("should not call me")
