@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestFutureOK(t *testing.T) {
@@ -73,12 +75,25 @@ func TestFutureCanceledByUser(t *testing.T) {
 	}
 }
 
-func TestClose(t *testing.T) {
+func TestCloseExcutor(t *testing.T) {
 	exec := NewExecutor(4)
 	exec.Close()
 	future := exec.Submit(NewTask(nil, "task-0", time.Second*5, func(ctx context.Context) any {
-		return nil
+		panic("should not call me")
 	}))
 	result, err := future.Get()
-	t.Logf("result = %v, err = %v", result, err)
+	assert.Nil(t, result)
+	assert.NotNil(t, err)
+}
+
+func TestCloseTaskBeforeSubmit(t *testing.T) {
+	exec := NewExecutor(4)
+	task := NewTask(context.Background(), "closed_task", time.Second, func(ctx context.Context) any {
+		panic("should not call me")
+	})
+	task.Cancel(nil)
+	f := exec.Submit(task)
+	result, err := f.Get()
+	assert.Nil(t, result)
+	assert.NotNil(t, err)
 }
