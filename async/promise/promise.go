@@ -4,6 +4,8 @@ import (
 	"sync"
 )
 
+// NOTE: Promise will not support generic type, or the chain call will be very ugly.
+
 type State int
 
 func (s State) String() string {
