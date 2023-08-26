@@ -1,6 +1,7 @@
 package ds
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/sshelll/sinfra/util"
@@ -75,84 +76,57 @@ type TestUser struct {
 	age  int
 }
 
-// This is a wrapper of real biz entity.
-type TestUserWrapper struct {
-	info     *TestUser
-	id       string
-	parentID *string
-}
-
-func (u *TestUserWrapper) SetKey(key string) {
-	panic("implement me")
-}
-
-func (u *TestUserWrapper) GetKey() string {
-	return u.id
-}
-
-func (u *TestUserWrapper) SetVal(val *TestUser) {
-	panic("implement me")
-}
-
-func (u *TestUserWrapper) GetVal() *TestUser {
-	return u.info
-}
-
-func (u *TestUserWrapper) GetParent() MetaData[*TestUser] {
-	panic("implement me")
-}
-
-func (u *TestUserWrapper) GetChildren() []MetaData[*TestUser] {
-	panic("implement me")
-}
-
-func (u *TestUserWrapper) GetParentKey() *string {
-	return u.parentID
-}
-
-func (u *TestUserWrapper) GetChildrenKeys() []string {
-	panic("implement me")
-}
-
 func TestRealCase(t *testing.T) {
-	leaderA := &TestUserWrapper{
-		id: "a",
-	}
-	leaderB := &TestUserWrapper{
-		id: "b",
-	}
-	leaderC := &TestUserWrapper{
-		id: "c",
-	}
-	workerA1 := &TestUserWrapper{
-		id:       "a1",
-		parentID: util.Ptr(leaderA.id),
-	}
-	workerA2 := &TestUserWrapper{
-		id:       "a2",
-		parentID: util.Ptr(leaderA.id),
-	}
-	workerB1 := &TestUserWrapper{
-		id:       "b1",
-		parentID: util.Ptr(leaderB.id),
-	}
-	workerB11 := &TestUserWrapper{
-		id:       "b11",
-		parentID: util.Ptr(workerB1.id),
-	}
+	// wrap biz entity to MetaNode
+	leaderA := NewMetaNode[*TestUser]("a", &TestUser{name: "a"}, nil)
+	leaderB := NewMetaNode[*TestUser]("b", &TestUser{name: "b"}, nil)
+	leaderC := NewMetaNode[*TestUser]("c", &TestUser{name: "c"}, nil)
+	leaderD := NewMetaNode[*TestUser]("d", &TestUser{name: "d"}, nil)
+	workerA1 := NewMetaNode[*TestUser]("a1", &TestUser{name: "a1"}, &leaderA.Key)
+	workerA2 := NewMetaNode[*TestUser]("a2", &TestUser{name: "a2"}, &leaderA.Key)
+	workerB1 := NewMetaNode[*TestUser]("b1", &TestUser{name: "b1"}, &leaderB.Key)
+	workerB11 := NewMetaNode[*TestUser]("b11", &TestUser{name: "b11"}, &workerB1.Key)
+	workerC1 := NewMetaNode[*TestUser]("c1", &TestUser{name: "c1"}, &leaderC.Key)
+
 	users := []MetaData[*TestUser]{
 		leaderA,
 		leaderB,
 		leaderC,
+		leaderD,
 		workerA1,
 		workerA2,
 		workerB1,
 		workerB11,
+		workerC1,
 	}
+
 	forest := BuildMetaForestBottomUp(users)
+
 	t.Logf("forest tree cnt: %v", len(forest.Children))
 	t.Log(forest.Children[0].Root.ExpandKey())
 	t.Log(forest.Children[1].Root.ExpandKey())
 	t.Log(forest.Children[2].Root.ExpandKey())
+	t.Log(forest.Children[3].Root.ExpandKey())
 	t.Log(forest.SearchNode("b1").ExpandKey())
+
+	t.Log("-----------------")
+
+	var empty MetaData[*TestUser]
+	var emptyNode *MetaNode[*TestUser]
+	t.Log(leaderA.GetParent(),
+		leaderA.Parent == nil,
+		leaderA.NoParent(),
+		leaderA.GetParent() == nil,
+		leaderA.GetParent() == empty,
+		leaderA.GetParent() == emptyNode,
+		leaderA.Nil(leaderA.GetParent()),
+	)
+
+	var dataA MetaData[*TestUser] = leaderA
+	t.Log(
+		dataA.GetParent() == nil,                     // false
+		util.IsNilT(dataA.GetParent()),               // true
+		reflect.ValueOf(leaderA.GetParent()).IsNil(), // true
+		reflect.ValueOf(dataA.GetParent()).IsNil(),   // true
+	)
 }

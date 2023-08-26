@@ -1,6 +1,8 @@
 package ds
 
-import "sync"
+import (
+	"sync"
+)
 
 type (
 	MetaForest[T any] struct {
@@ -35,6 +37,15 @@ type (
 		GetChildrenKeys() []string
 	}
 )
+
+func NewMetaNode[T any](key string, val T, parentKey *string) *MetaNode[T] {
+	node := &MetaNode[T]{
+		Key:       key,
+		Val:       val,
+		ParentKey: parentKey,
+	}
+	return node
+}
 
 // EnableHashIndex enables hash index for MetaForest.
 // This is useful when you want to search a node by key.
@@ -156,21 +167,35 @@ func (node *MetaNode[T]) GetVal() T {
 	return node.Val
 }
 
+// GetParent returns the parent of the MetaData with type T.
+// This method was only designed to impl MetaData interface.
+// WARN: do not try to judge whether the parent is nil or not by
+// node.GetParent() == nil, because this will always return false,
+// even if the parent is nil. This is a imperfection of golang generic.
+// If you want to check it, please use NoParent() or node.Parent == nil.
 func (node *MetaNode[T]) GetParent() MetaData[T] {
 	return node.Parent
 }
 
+func (node *MetaNode[T]) NoParent() bool {
+	return node.Parent == nil
+}
+
+func (node *MetaNode[T]) Nil(metaData MetaData[T]) bool {
+	var t *MetaNode[T]
+	return metaData == t
+}
+
 func (node *MetaNode[T]) GetChildren() []MetaData[T] {
-	var r []MetaData[T]
+	children := make([]MetaData[T], 0, len(node.Children))
 	for _, c := range node.Children {
-		r = append(r, c)
+		children = append(children, c)
 	}
-	return r
+	return children
 }
 
 func (node *MetaNode[T]) GetParentKey() *string {
-	var t *MetaNode[T]
-	if node.Parent != t {
+	if node.Parent != nil {
 		k := node.Parent.GetKey()
 		return &k
 	}
@@ -178,11 +203,11 @@ func (node *MetaNode[T]) GetParentKey() *string {
 }
 
 func (node *MetaNode[T]) GetChildrenKeys() []string {
-	var r []string
+	keys := make([]string, 0, len(node.Children))
 	for _, c := range node.Children {
-		r = append(r, c.GetKey())
+		keys = append(keys, c.GetKey())
 	}
-	return r
+	return keys
 }
 
 // ConvToMetaForest builds a MetaForest from a list of MetaData.
@@ -253,7 +278,8 @@ func ConvToMetaDataList[T any](metaNodes []*MetaNode[T]) []MetaData[T] {
 // BuildMetaForestBottomUp builds a MetaForest from a list of MetaData.
 // This function builds the forest bottom up, so each MetaData must have a 'parent key',
 // which means you have to impl GetParentKey(), GetKey(), GetVal() methods.
-// NOTE: GetParent() returns "" means this node is a root.
+// NOTE: I recommend you to use MetaNode instead of MetaData,
+// because MetaNode has already impl these methods.
 func BuildMetaForestBottomUp[T any](metaDataList []MetaData[T]) *MetaForest[T] {
 	var roots []*MetaNode[T]
 	var nodeMap = &sync.Map{}
