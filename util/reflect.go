@@ -22,3 +22,7 @@ func IsNil(v reflect.Value) bool {
 	}
 	return false
 }
+
+func IsNilT[T any](v T) bool {
+	return IsNil(reflect.ValueOf(v))
+}
