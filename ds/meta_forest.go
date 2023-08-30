@@ -278,8 +278,7 @@ func ConvToMetaDataList[T any](metaNodes []*MetaNode[T]) []MetaData[T] {
 // BuildMetaForestBottomUp builds a MetaForest from a list of MetaData.
 // This function builds the forest bottom up, so each MetaData must have a 'parent key',
 // which means you have to impl GetParentKey(), GetKey(), GetVal() methods.
-// NOTE: I recommend you to use MetaNode instead of MetaData,
-// because MetaNode has already impl these methods.
+// NOTE: use MetaNode instead of MetaData is recommended, because MetaNode has already impl these methods.
 func BuildMetaForestBottomUp[T any](metaDataList []MetaData[T]) *MetaForest[T] {
 	var roots []*MetaNode[T]
 	var nodeMap = &sync.Map{}
