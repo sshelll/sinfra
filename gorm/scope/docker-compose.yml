@@ -1,0 +1,8 @@
+services:
+  database:
+    container_name: mysql_scope_test
+    image: mysql:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+    ports:
+      - "3309:3306"
