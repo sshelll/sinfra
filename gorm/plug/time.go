@@ -6,33 +6,32 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 type TimePlug struct {
-	tag    *string
-	fields map[string]struct{}
+	BasePlug
 	timeFn func() time.Time
 }
 
-func NewTimePlug() *TimePlug {
-	return &TimePlug{
-		timeFn: time.Now,
-		fields: make(map[string]struct{}),
+// NewTimePlug creates a new time plug, name is optional.
+// If you want to call db.Use() twice, you must set a unique name,
+// otherwise the second call will cause a error by gorm.
+func NewTimePlug(name ...string) *TimePlug {
+	p := &TimePlug{
+		timeFn:   time.Now,
+		BasePlug: *NewBasePlug(name...),
 	}
+	return p
 }
 
 func (p *TimePlug) WithTag(tag string) *TimePlug {
-	p.tag = &tag
+	p.BasePlug.WithTag(tag)
 	return p
 }
 
 func (p *TimePlug) WithFields(fields ...string) *TimePlug {
-	if p.fields == nil {
-		p.fields = make(map[string]struct{})
-	}
-	for _, v := range fields {
-		p.fields[v] = struct{}{}
-	}
+	p.BasePlug.WithFields(fields...)
 	return p
 }
 
@@ -42,6 +41,9 @@ func (p *TimePlug) WithTimeFn(fn func() time.Time) *TimePlug {
 }
 
 func (p *TimePlug) Name() string {
+	if p.name != nil {
+		return "sinfra:time_plug:" + *p.name
+	}
 	return "sinfra:time_plug"
 }
 
@@ -49,9 +51,11 @@ func (p *TimePlug) Initialize(db *gorm.DB) error {
 	if p.tag == nil && len(p.fields) == 0 {
 		return errors.New("tag or field must be set")
 	}
-	callback := p.setTimeByField
-	if p.tag != nil {
-		callback = p.setTimeByTag
+	callback := func(db *gorm.DB) {
+		p.WalkFields(db, func(db *gorm.DB, f *schema.Field) {
+			rv := f.ReflectValueOf(db.Statement.Context, db.Statement.ReflectValue)
+			rv.Set(reflect.ValueOf(p.timeFn()))
+		})
 	}
 	return db.Callback().Create().Before("gorm:create").Register(p.Name(), callback)
 }
@@ -59,24 +63,4 @@ func (p *TimePlug) Initialize(db *gorm.DB) error {
 func (p *TimePlug) Finalize(db *gorm.DB) error {
 	delete(db.Config.Plugins, p.Name())
 	return db.Callback().Create().Before("gorm:create").Remove(p.Name())
-}
-
-func (p *TimePlug) setTimeByTag(db *gorm.DB) {
-	for _, v := range db.Statement.Schema.Fields {
-		_, ok := v.StructField.Tag.Lookup(*p.tag)
-		if ok {
-			rv := v.ReflectValueOf(db.Statement.Context, db.Statement.ReflectValue)
-			rv.Set(reflect.ValueOf(p.timeFn()))
-		}
-	}
-}
-
-func (p *TimePlug) setTimeByField(db *gorm.DB) {
-	for _, v := range db.Statement.Schema.Fields {
-		_, ok := p.fields[v.Name]
-		if ok {
-			rv := v.ReflectValueOf(db.Statement.Context, db.Statement.ReflectValue)
-			rv.Set(reflect.ValueOf(p.timeFn()))
-		}
-	}
 }
