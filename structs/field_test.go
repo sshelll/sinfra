@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/sshelll/sinfra/conv"
+	"github.com/sshelll/sinfra/util"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,7 +24,7 @@ func TestExtractStructFieldValues(t *testing.T) {
 		base: &base{
 			ID: "id",
 		},
-		Name:     conv.StrPtr("name"),
+		Name:     util.Ptr("name"),
 		Age:      1,
 		Birthday: 1,
 		Map: map[string]int{
@@ -74,14 +74,14 @@ type S2 struct {
 
 func TestCheckRequired(t *testing.T) {
 	s := &S1{
-		ID:   conv.StrPtr("id"),
+		ID:   util.Ptr("id"),
 		Name: "name",
 		Anon: struct {
 			Anon1 *int  `required:"true"`
 			Anon2 []int `required:"true"`
 			Anon3 string
 		}{
-			Anon1: conv.IntPtr(1),
+			Anon1: util.Ptr(1),
 			Anon2: []int{1, 2, 3},
 			Anon3: "anon3",
 		},
@@ -113,7 +113,7 @@ func TestCheckRequired(t *testing.T) {
 
 func TestCheckRequiredWithEmptyField(t *testing.T) {
 	s := &S1{
-		ID:        conv.StrPtr("id"),
+		ID:        util.Ptr("id"),
 		Name:      "",
 		Interfase: nil,
 		Slice:     []int{},
@@ -123,7 +123,7 @@ func TestCheckRequiredWithEmptyField(t *testing.T) {
 			Anon2 []int `required:"true"`
 			Anon3 string
 		}{
-			Anon1: conv.IntPtr(1),
+			Anon1: util.Ptr(1),
 			Anon2: []int{1, 2, 3},
 			Anon3: "anon3",
 		},

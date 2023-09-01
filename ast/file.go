@@ -3,8 +3,7 @@ package ast
 import (
 	"fmt"
 	"go/ast"
-
-	"github.com/sshelll/sinfra/conv"
+	"strings"
 )
 
 type File struct {
@@ -114,7 +113,7 @@ func (f *Field) Print() {
 	if f == nil {
 		return
 	}
-	fmt.Printf("Field: name: '%v' type: %s\n", conv.StrConcat(",", f.NameList...), f.TypeName)
+	fmt.Printf("Field: name: '%v' type: %s\n", strings.Join(f.NameList, ","), f.TypeName)
 }
 
 func (m *Method) Print() {

@@ -5,13 +5,13 @@ import (
 
 	. "reflect"
 
-	"github.com/sshelll/sinfra/conv"
+	"github.com/sshelll/sinfra/util"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGenMap(t *testing.T) {
 	mt := TypeOf(map[string]int{})
-	m := Gen(mt, &GenOption{MapLen: conv.IntPtr(10)}).(map[string]int)
+	m := Gen(mt, &GenOption{MapLen: util.Ptr(10)}).(map[string]int)
 	assert.Equal(t, 10, len(m))
 }
 
@@ -67,7 +67,7 @@ func TestGenStruct(t *testing.T) {
 	t.Log(inst.SubSlice[0].Name)
 	t.Log(inst.SubSlice[1].Name)
 
-	inst = Gen(TypeOf(TestStruct{}), &GenOption{MaxDepth: conv.IntPtr(1)}).(TestStruct)
+	inst = Gen(TypeOf(TestStruct{}), &GenOption{MaxDepth: util.Ptr(1)}).(TestStruct)
 	t.Logf("%+v", inst)
 	t.Log(inst.Sub)
 
