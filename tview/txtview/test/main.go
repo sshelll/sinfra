@@ -24,6 +24,11 @@ func main() {
 func viewer() {
 	opts := txtview.NewDefaultOpts()
 	opts.Title = util.Ptr("Test TxtViewer")
+	opts.DoneFunc = func(key tcell.Key, v *txtview.Viewer) {
+		if key == tcell.KeyEnter {
+			v.Stop()
+		}
+	}
 	viewer := txtview.NewViewer(opts)
 	go func() {
 		for _, word := range strings.Split(corporate, " ") {
