@@ -68,6 +68,10 @@ func (v *viewer) View() *tview.TextView {
 	return v.view
 }
 
+func (v *viewer) Write(p []byte) (n int, err error) {
+	return v.view.Write(p)
+}
+
 func (v *viewer) Run() error {
 	v.apply()
 	return v.app.
@@ -77,8 +81,9 @@ func (v *viewer) Run() error {
 }
 
 func (v *viewer) apply() {
-	v.view.SetBackgroundColor(v.opts.BgColor)
-	v.view.SetRegions(v.opts.Regions).
+	view := v.view
+	view.SetBackgroundColor(v.opts.BgColor)
+	view.SetRegions(v.opts.Regions).
 		SetWrap(v.opts.Wrap).
 		SetDynamicColors(v.opts.DynamicColors).
 		SetChangedFunc(func() {
@@ -93,10 +98,17 @@ func (v *viewer) apply() {
 				v.opts.DoneFunc(key)
 			}
 		})
+	view.SetBorder(v.opts.Border)
+	if v.opts.BorderAttr != nil {
+		view.SetBorderAttributes(*v.opts.BorderAttr)
+	}
+	if v.opts.BorderStyle != nil {
+		view.SetBorderStyle(*v.opts.BorderStyle)
+	}
 	if v.opts.Title != nil {
-		v.view.SetTitle(*v.opts.Title)
+		view.SetTitle(*v.opts.Title)
 	}
 	if !v.opts.FullScreen {
-		v.view.SetRect(v.opts.X, v.opts.Y, v.opts.Cols, v.opts.Rows)
+		view.SetRect(v.opts.X, v.opts.Y, v.opts.Cols, v.opts.Rows)
 	}
 }

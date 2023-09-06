@@ -8,12 +8,35 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+	"github.com/sshelll/sinfra/tview/txtview"
 )
 
 const corporate = `Leverage the a the b to c to d.
 [yellow]Press Enter, then Tab/Backtab for word selections`
 
 func main() {
+	viewer()
+	// raw()
+}
+
+func viewer() {
+	opts := txtview.NewDefaultOpts()
+	viewer := txtview.NewViewer(opts)
+	go func() {
+		for _, word := range strings.Split(corporate, " ") {
+			if word == "the" {
+				word = "[red]the[white]"
+			}
+			fmt.Fprintf(viewer, "%s ", word)
+			time.Sleep(200 * time.Millisecond)
+		}
+	}()
+	if err := viewer.Run(); err != nil {
+		panic(err)
+	}
+}
+
+func raw() {
 	app := tview.NewApplication()
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
