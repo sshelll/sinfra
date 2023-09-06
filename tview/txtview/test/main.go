@@ -9,18 +9,21 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/sshelll/sinfra/tview/txtview"
+	"github.com/sshelll/sinfra/util"
 )
 
 const corporate = `Leverage the a the b to c to d.
 [yellow]Press Enter, then Tab/Backtab for word selections`
 
+const textZH = `你好世界，我是txtviewer，我是一个文本查看器`
+
 func main() {
 	viewer()
-	// raw()
 }
 
 func viewer() {
 	opts := txtview.NewDefaultOpts()
+	opts.Title = util.Ptr("Test TxtViewer")
 	viewer := txtview.NewViewer(opts)
 	go func() {
 		for _, word := range strings.Split(corporate, " ") {
@@ -28,7 +31,7 @@ func viewer() {
 				word = "[red]the[white]"
 			}
 			fmt.Fprintf(viewer, "%s ", word)
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(50 * time.Millisecond)
 		}
 	}()
 	if err := viewer.Run(); err != nil {
@@ -50,15 +53,12 @@ func raw() {
 	textView.SetBorder(true).SetBorderAttributes(tcell.AttrBold)
 	numSelections := 0
 	go func() {
-		for _, word := range strings.Split(corporate, " ") {
-			if word == "the" {
-				word = "[red]the[white]"
+		for _, ch := range corporate {
+			word := string(ch)
+			if word == "t" {
+				word = "[red]t[white]"
 			}
-			if word == "to" {
-				word = fmt.Sprintf(`["%d"]to[""]`, numSelections)
-				numSelections++
-			}
-			fmt.Fprintf(textView, "%s ", word)
+			fmt.Fprintf(textView, "%s", word)
 			time.Sleep(200 * time.Millisecond)
 		}
 	}()
