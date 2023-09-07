@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -31,11 +30,12 @@ func viewer() {
 	}
 	viewer := txtview.NewViewer(opts)
 	go func() {
-		for _, word := range strings.Split(corporate, " ") {
-			if word == "the" {
-				word = "[red]the[white]"
+		for _, ch := range textZH {
+			data := string(ch)
+			if ch == '你' || ch == '我' {
+				data = fmt.Sprintf("[red]%s[white]", data)
 			}
-			fmt.Fprintf(viewer, "%s ", word)
+			fmt.Fprintf(viewer, "%s", data)
 			time.Sleep(50 * time.Millisecond)
 		}
 	}()
