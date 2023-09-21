@@ -28,24 +28,26 @@ const (
 )
 
 type Promise struct {
-	state    State
-	done     chan struct{}
-	resolved interface{}
-	rejected interface{}
-	resultMu *sync.Mutex
-	catch    func(any)
-	catchMu  *sync.Mutex
-	final    func(any)
-	finalMu  *sync.Mutex
+	state       State
+	done        chan struct{}
+	resolved    interface{}
+	rejected    interface{}
+	confirmedCh chan struct{}
+	resultMu    *sync.Mutex
+	catch       func(any)
+	catchMu     *sync.Mutex
+	final       func(any)
+	finalMu     *sync.Mutex
 }
 
 func New(fn func(resolve, reject func(v any))) *Promise {
 	p := &Promise{
-		state:    PENDING,
-		done:     make(chan struct{}),
-		resultMu: &sync.Mutex{},
-		catchMu:  &sync.Mutex{},
-		finalMu:  &sync.Mutex{},
+		state:       PENDING,
+		done:        make(chan struct{}),
+		resultMu:    &sync.Mutex{},
+		catchMu:     &sync.Mutex{},
+		finalMu:     &sync.Mutex{},
+		confirmedCh: make(chan struct{}),
 	}
 
 	go func() {
@@ -57,6 +59,9 @@ func New(fn func(resolve, reject func(v any))) *Promise {
 			if r := recover(); r != nil {
 				p.reject(r)
 			}
+
+			// waiting for confirm
+			<-p.confirmedCh
 
 			// check state
 			if p.state == PENDING {
@@ -160,6 +165,7 @@ func (p *Promise) Final(fn func(any)) *Promise {
 }
 
 func (p *Promise) resolve(v any) {
+	defer p.confirm()
 	p.resultMu.Lock()
 	defer p.resultMu.Unlock()
 	if p.state != PENDING {
@@ -171,6 +177,7 @@ func (p *Promise) resolve(v any) {
 }
 
 func (p *Promise) reject(v any) {
+	defer p.confirm()
 	p.resultMu.Lock()
 	defer p.resultMu.Unlock()
 	if p.state != PENDING {
@@ -179,4 +186,12 @@ func (p *Promise) reject(v any) {
 	p.state = REJECTED
 	p.rejected = v
 	p.resolved = nil
+}
+
+func (p *Promise) confirm() {
+	select {
+	case <-p.confirmedCh:
+	default:
+		close(p.confirmedCh)
+	}
 }
