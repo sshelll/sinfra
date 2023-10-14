@@ -63,7 +63,7 @@ func TestConvToTree(t *testing.T) {
 			},
 		},
 	}
-	tree := ConvToMetaTree(utRoot)
+	tree := ConvToMetaTree[string](utRoot)
 	keys := tree.Root.ExpandKey()
 	vals := tree.Root.ExpandVal()
 	t.Logf("keys: %v", keys)
