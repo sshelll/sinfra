@@ -3,6 +3,7 @@ package util
 import (
 	"fmt"
 	"runtime"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -49,4 +50,15 @@ func ExecWithinTransaction(db *gorm.DB, fn func(tx *gorm.DB) error) error {
 	}
 
 	return nil
+}
+
+type logger interface {
+	Info(args ...any)
+}
+
+func TimeCostLog(name string, logger logger) func() {
+	now := time.Now()
+	return func() {
+		logger.Info(fmt.Sprintf("%v - time cost %v", name, time.Since(now).Milliseconds()))
+	}
 }
