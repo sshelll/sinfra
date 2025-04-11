@@ -65,7 +65,8 @@ type S1 struct {
 		Anon2 []int `required:"true"`
 		Anon3 string
 	} `required:"true"`
-	S2 *S2 `required:"true"`
+	Sub *S1 `required:"true"`
+	S2  *S2 `required:"true"`
 }
 
 type S2 struct {
@@ -85,7 +86,8 @@ func TestCheckRequired(t *testing.T) {
 			Anon2: []int{1, 2, 3},
 			Anon3: "anon3",
 		},
-		S2: &S2{},
+		Sub: &S1{},
+		S2:  &S2{},
 	}
 
 	missing := CheckRequired(reflect.ValueOf(s), "required")
